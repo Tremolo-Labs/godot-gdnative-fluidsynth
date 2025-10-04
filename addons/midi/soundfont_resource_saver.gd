@@ -1,16 +1,16 @@
-tool
+@tool
 class_name SoundFontDataSaver
 extends ResourceFormatSaver
 
 const SoundFontFileReader = preload("res://bin/soundfont_file_reader.gdns")
 
-func get_recognized_extensions(res):
+func _get_recognized_extensions(res):
 	if res.has_method("get_extension"):
-		return PoolStringArray([res.get_extension()])
+		return PackedStringArray([res.get_extension()])
 	else:
-		return PoolStringArray()
+		return PackedStringArray()
 
-func recognize(res):
+func _recognize(res):
 	return res.has_method("get_extension")
 
 func save(path, resource, flags):
