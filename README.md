@@ -8,7 +8,7 @@ How to Install
 
 Install system dependencies for Ubuntu:
 
-    apt install libfluidsynth-dev abcmidi
+    apt install fluidsynth libfluidsynth-dev abcmidi scons
 
 Build
 -----
