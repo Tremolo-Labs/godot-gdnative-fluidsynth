@@ -49,14 +49,14 @@ long long my_tell(void *handle) {
     return position;
 }
 
-void GDMidiAudioStreamPlayer::_register_methods() {
-    register_method("_process", &GDMidiAudioStreamPlayer::_process);
-    register_method("program_select", &GDMidiAudioStreamPlayer::program_select);
-    register_method("note_on", &GDMidiAudioStreamPlayer::note_on);
-    register_method("note_off", &GDMidiAudioStreamPlayer::note_off);
-    register_method("pitch_bend", &GDMidiAudioStreamPlayer::pitch_bend);
-    register_property<GDMidiAudioStreamPlayer, String>("soundfont", &GDMidiAudioStreamPlayer::set_soundfont, &GDMidiAudioStreamPlayer::get_soundfont, String("[empty]"));
-    register_property<GDMidiAudioStreamPlayer, String>("midi file", &GDMidiAudioStreamPlayer::set_midi_file, &GDMidiAudioStreamPlayer::get_midi_file, String(), GODOT_METHOD_RPC_MODE_DISABLED, GODOT_PROPERTY_USAGE_DEFAULT, GODOT_PROPERTY_HINT_RESOURCE_TYPE, String("MidiFileReader"));
+void GDMidiAudioStreamPlayer::_bind_methods() {
+    godot::ClassDB::bind_method(D_METHOD("_process","void"), &GDMidiAudioStreamPlayer::_process);
+    godot::ClassDB::bind_method(D_METHOD("program_select", "void"), &GDMidiAudioStreamPlayer::program_select);
+    godot::ClassDB::bind_method(D_METHOD("note_on", "void"), &GDMidiAudioStreamPlayer::note_on);
+    godot::ClassDB::bind_method(D_METHOD("note_off", "void"), &GDMidiAudioStreamPlayer::note_off);
+    godot::ClassDB::bind_method(D_METHOD("pitch_bend", "void"), &GDMidiAudioStreamPlayer::pitch_bend);
+    ADD_PROPERTY(godot::PropertyInfo(Variant::STRING, "soundfont"), "set_soundfont", "get_soundfont");
+    ADD_PROPERTY(godot::PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
 }
 
 GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() {
@@ -152,7 +152,7 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
         Variant resource = ResourceLoader::get_singleton()->load(midi_file);
 
         Ref<MidiFileReader> midi = resource;
-        PoolByteArray byte_array = midi->get_data();
+        PackedByteArray byte_array = midi->get_data();
 
         if (byte_array.size() > 0) {
             char midi_file[byte_array.size()];

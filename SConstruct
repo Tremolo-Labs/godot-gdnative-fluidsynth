@@ -1,94 +1,64 @@
-#!python
-import os, subprocess
+#!/usr/bin/env python
+import os
+import sys
 
-opts = Variables([], ARGUMENTS)
+from methods import print_error
 
-# Gets the standard flags CC, CCX, etc.
-env = DefaultEnvironment()
 
-# Define our options
-opts.Add(EnumVariable('target', "Compilation target", 'debug', ['d', 'debug', 'r', 'release']))
-opts.Add(EnumVariable('platform', "Compilation platform", '', ['', 'windows', 'x11', 'linux', 'osx']))
-opts.Add(EnumVariable('p', "Compilation target, alias for 'platform'", '', ['', 'windows', 'x11', 'linux', 'osx']))
-opts.Add(BoolVariable('use_llvm', "Use the LLVM / Clang compiler", 'no'))
-opts.Add(PathVariable('target_path', 'The path where the lib is installed.', 'bin/'))
-opts.Add(PathVariable('target_name', 'The library name.', 'libgdmidiplayer', PathVariable.PathAccept))
+libname = "gdmidiplayer"
+projectdir = "gdmidiplayer"
 
-# Local dependency paths, adapt them to your setup
-godot_headers_path = "godot-cpp/godot-headers/"
-cpp_bindings_path = "godot-cpp/"
-cpp_library = "libgodot-cpp"
-fluidsynth_library = "fluidsynth"
+localEnv = Environment(tools=["default"], PLATFORM="")
 
-# only support 64 at this time..
-bits = 64
+# Build profiles can be used to decrease compile times.
+# You can either specify "disabled_classes", OR
+# explicitly specify "enabled_classes" which disables all other classes.
+# Modify the example file as needed and uncomment the line below or
+# manually specify the build_profile parameter when running SCons.
 
-# Updates the environment with the option variables.
-opts.Update(env)
+# localEnv["build_profile"] = "build_profile.json"
 
-# Process some arguments
-if env['use_llvm']:
-    env['CC'] = 'clang'
-    env['CXX'] = 'clang++'
+customs = ["custom.py"]
+customs = [os.path.abspath(path) for path in customs]
 
-if env['p'] != '':
-    env['platform'] = env['p']
+opts = Variables(customs, ARGUMENTS)
+opts.Update(localEnv)
 
-if env['platform'] == '':
-    print("No valid target platform selected.")
-    quit();
+Help(opts.GenerateHelpText(localEnv))
 
-# Check our platform specifics
-if env['platform'] == "osx":
-    env['target_path'] += 'osx/'
-    cpp_library += '.osx'
-    if env['target'] in ('debug', 'd'):
-        env.Append(CCFLAGS = ['-g','-O2', '-arch', 'x86_64'])
-        env.Append(LINKFLAGS = ['-arch', 'x86_64'])
-    else:
-        env.Append(CCFLAGS = ['-g','-O3', '-arch', 'x86_64'])
-        env.Append(LINKFLAGS = ['-arch', 'x86_64'])
+env = localEnv.Clone()
 
-elif env['platform'] in ('x11', 'linux'):
-    env['target_path'] += 'x11/'
-    cpp_library += '.linux'
-    if env['target'] in ('debug', 'd'):
-        env.Append(CCFLAGS = ['-fPIC', '-g3','-Og', '-std=c++17'])
-    else:
-        env.Append(CCFLAGS = ['-fPIC', '-g','-O3', '-std=c++17'])
+if not (os.path.isdir("godot-cpp") and os.listdir("godot-cpp")):
+    print_error("""godot-cpp is not available within this folder, as Git submodules haven't been initialized.
+Run the following command to download godot-cpp:
 
-elif env['platform'] == "windows":
-    env['target_path'] += 'win64/'
-    cpp_library += '.windows'
-    # This makes sure to keep the session environment variables on windows,
-    # that way you can run scons in a vs 2017 prompt and it will find all the required tools
-    env.Append(ENV = os.environ)
+    git submodule update --init --recursive""")
+    sys.exit(1)
 
-    env.Append(CCFLAGS = ['-DWIN32', '-D_WIN32', '-D_WINDOWS', '-W3', '-GR', '-D_CRT_SECURE_NO_WARNINGS'])
-    if env['target'] in ('debug', 'd'):
-        env.Append(CCFLAGS = ['-EHsc', '-D_DEBUG', '-MDd'])
-    else:
-        env.Append(CCFLAGS = ['-O2', '-EHsc', '-DNDEBUG', '-MD'])
+env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
 
-if env['target'] in ('debug', 'd'):
-    cpp_library += '.debug'
-else:
-    cpp_library += '.release'
+env.Append(CPPPATH=["src/"])
+sources = Glob("src/*.cpp")
 
-cpp_library += '.' + str(bits)
+if env["target"] in ["editor", "template_debug"]:
+    try:
+        doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("doc_classes/*.xml"))
+        sources.append(doc_data)
+    except AttributeError:
+        print("Not including class reference as we're targeting a pre-4.3 baseline.")
 
-# make sure our binding library is properly includes
-env.Append(CPPPATH=['.', godot_headers_path, cpp_bindings_path + 'include/', cpp_bindings_path + 'include/core/', cpp_bindings_path + 'include/gen/'])
-env.Append(LIBPATH=[cpp_bindings_path + 'bin/', '/usr/local/lib64'])
-env.Append(LIBS=[cpp_library, fluidsynth_library])
+# .dev doesn't inhibit compatibility, so we don't need to key it.
+# .universal just means "compatible with all relevant arches" so we don't need to key it.
+suffix = env['suffix'].replace(".dev", "").replace(".universal", "")
 
-# tweak this if you want to use different folders, or more folders, to store your source code in.
-env.Append(CPPPATH=['src/'])
-sources = Glob('src/*.cpp')
+lib_filename = "{}{}{}{}".format(env.subst('$SHLIBPREFIX'), libname, suffix, env.subst('$SHLIBSUFFIX'))
 
-library = env.SharedLibrary(target=env['target_path'] + env['target_name'] , source=sources)
+library = env.SharedLibrary(
+    "bin/{}/{}".format(env['platform'], lib_filename),
+    source=sources,
+)
 
-Default(library)
+copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), library)
 
-# Generates help for the -h scons option.
-Help(opts.GenerateHelpText(env))
+default_args = [library, copy]
+Default(*default_args)

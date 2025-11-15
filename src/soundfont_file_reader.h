@@ -1,14 +1,14 @@
 #ifndef SOUNDFONTFILEREADER_H
 #define	SOUNDFONTFILEREADER_H
 
-#include <Godot.hpp>
-#include <Resource.hpp>
-#include <Variant.hpp>
+#include <godot_cpp/godot.hpp>
+#include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/variant/variant.hpp>
 
 namespace godot {
 
 class SoundFontFileReader : public Resource {
-	GODOT_CLASS(SoundFontFileReader, Resource)
+	GDCLASS(SoundFontFileReader, Resource)
 
 private:
 	String file;
@@ -22,13 +22,13 @@ public:
 
     void _init();
 
-	void set_data(PoolByteArray data);
-	PoolByteArray get_data();
+	void set_data(PackedByteArray data);
+	PackedByteArray get_data();
     char *get_array_data();
     long get_array_size();
     String get_extension();
 
-	static void _register_methods();
+	static void _bind_methods();
 };
 
 }

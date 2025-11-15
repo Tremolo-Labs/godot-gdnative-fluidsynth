@@ -1,19 +1,19 @@
 #ifndef MIDIFILEREADER_H
 #define	MIDIFILEREADER_H
 
-#include <Godot.hpp>
-#include <Resource.hpp>
-#include <Variant.hpp>
+#include <godot_cpp/godot.hpp>
+#include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/variant/variant.hpp>
 
 namespace godot {
 
 class MidiFileReader : public Resource {
-	GODOT_CLASS(MidiFileReader, Resource)
+	GDCLASS(MidiFileReader, Resource)
 
 private:
 	String file;
 
-    PoolByteArray array_data;
+    PackedByteArray array_data;
 	void clear_data();
 public:
 	MidiFileReader();
@@ -21,11 +21,11 @@ public:
 
     void _init();
 
-	void set_data(PoolByteArray data);
-	PoolByteArray get_data();
+	void set_data(PackedByteArray data);
+	PackedByteArray get_data();
     String get_extension();
 
-	static void _register_methods();
+	static void _bind_methods();
 };
 
 }

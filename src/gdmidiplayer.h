@@ -1,14 +1,14 @@
 #ifndef GDMIDIPLAYER_H
 #define GDMIDIPLAYER_H
 
-#include <Godot.hpp>
-#include <AudioStream.hpp>
-#include <AudioStreamPlayer.hpp>
-#include <AudioStreamGeneratorPlayback.hpp>
-#include <ProjectSettings.hpp>
-#include <ResourceLoader.hpp>
-#include <Resource.hpp>
-#include <File.hpp>
+#include <godot_cpp/godot.hpp>
+#include <godot_cpp/classes/audio_stream.hpp>
+#include <godot_cpp/classes/audio_stream_player.hpp>
+#include <godot_cpp/classes/audio_stream_generator_playback.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/file_access.hpp>
 #include <fluidsynth.h>
 #include "midi_file_reader.h"
 #include "soundfont_file_reader.h"
@@ -17,7 +17,7 @@
 namespace godot {
 
 class GDMidiAudioStreamPlayer : public AudioStreamPlayer {
-    GODOT_CLASS(GDMidiAudioStreamPlayer, AudioStreamPlayer)
+    GDCLASS(GDMidiAudioStreamPlayer, AudioStreamPlayer)
 
 private:
     String soundfont;
@@ -35,7 +35,7 @@ private:
     void fill_buffer();
 
 public:
-    static void _register_methods();
+    static void _bind_methods();
 
     GDMidiAudioStreamPlayer();
     ~GDMidiAudioStreamPlayer();
