@@ -16,10 +16,10 @@ func _get_resource_type(path):
 func _handles_type(typename):
 	return typename == "SoundFontFileReader"
 
-func load(path, original_path):
-	var f = File.new()
+func load(path, _original_path):
+	var f = FileAccess.open(path, FileAccess.READ)
 
-	var err = f.open(path, File.READ)
+	var err = f.get_error()
 	if err != OK:
 		return err
 
