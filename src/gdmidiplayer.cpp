@@ -82,7 +82,9 @@ GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
 }
 
 void GDMidiAudioStreamPlayer::_init() {
-	buffer = new float[44100 * 2];
+	AudioServer *as = AudioServer::get_singleton();
+	int buf_size = as->get_mix_rate() * 2;
+	buffer = new float[buf_size];
 	fluidsynth_playing = false;
 	stream_playback = get_stream_playback();
 }
