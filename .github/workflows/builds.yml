@@ -59,8 +59,6 @@ jobs:
       - name: Windows/macOS - Setup vcpkg
         if: ${{ matrix.target.platform == 'windows' || matrix.target.platform == 'macos' }}
         uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: "c82f74667287d3dc386bce81e44964370c91a289"
 
       - name: Windows - Install fluidsynth (x86_64)
         if: ${{ matrix.target.platform == 'windows' && matrix.target.arch == 'x86_64' }}
