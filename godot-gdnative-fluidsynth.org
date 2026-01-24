@@ -1,18 +1,85 @@
-* Godot 4.5 Migration Summary
+* Godot Fluidsynth
 
-** Overview
+** TODO README
+:PROPERTIES:
+:ID:       9143f0ac-4efc-4139-9114-705d9ce2a0c0
+:END:
+rename this subtree something more semantic like "Overview" and configure it to export to README.md. Convert the following markdown to Org format.
+#+begin_src markdown :tangle README.md
+godot-gdnative-fluidsynth
+=========================
+
+Godot gdnative fluidsynth library to allow playing music using fluidsynth. Provides some primitives like ~AudioStreamMidiTrack~ and ~EventStreamMidiTrack~.
+
+## Contents
+,* godot-cpp as a submodule (`godot-cpp/`)
+,* GitHub Issues template (`.github/ISSUE_TEMPLATE.yml`)
+,* GitHub CI/CD workflows to publish your library packages when creating a release (`.github/workflows/builds.yml`)
+,* preconfigured source files for C++ development of the GDExtension (`src/`)
+,* setup to automatically generate `.xml` files in a `doc_classes/` directory to be parsed by Godot as [GDExtension built-in documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_docs_system.html)
+
+
+### Configuring an IDE
+You can develop your own extension with any text editor and by invoking scons on the command line, but if you want to work with an IDE (Integrated Development Environment), you can use a compilation database file called `compile_commands.json`. Most IDEs should automatically identify this file, and self-configure appropriately.
+To generate the database file, you can run one of the following commands in the project root directory:
+```shell
+# Generate compile_commands.json while compiling
+scons compiledb=yes
+
+# Generate compile_commands.json without compiling
+scons compiledb=yes compile_commands.json
+```
+
+## Usage - Actions
+
+This repository comes with a GitHub action that builds the GDExtension for cross-platform use. It triggers automatically for each pushed change. You can find and edit it in [builds.yml](.github/workflows/builds.yml).
+After a workflow run is complete, you can find the file `godot-cpp-template.zip` on the `Actions` tab on GitHub.
+
+## Old README
+
+
+How to Install
+--------------
+
+Install system dependencies for Ubuntu:
+
+    apt install fluidsynth libfluidsynth-dev abcmidi scons
+
+Build
+-----
+
+Initialize git submodules:
+
+    git submodule update --init --recursive
+
+Create assets:
+
+    make assets
+
+Compile godot-cpp library:
+
+    make godot-cpp
+
+Compile gdnative library:
+
+    make
+#+end_src
+
+** Godot 4.5 Migration Summary
+
+*** Overview
 Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDExtension).
 
-** Commits on godot-4.5 branch (14 total)
+*** Commits on godot-4.5 branch (14 total)
 
-*** Phase 1: Initial Setup
+**** Phase 1: Initial Setup
 - ba31511 :: checkout godot-cpp/tags/godot-4.5-stable
 - bd1dae4 :: update build instructions (added fluidsynth/scons deps for Ubuntu)
 - 0c11181 :: convert project to v4 with godot's migration tool
 - 3431b9c :: update godot-cpp to 4.5-stable (.gitmodules)
 - 1f86e70 :: update .gitignore
 
-*** Phase 2: GDExtension Template Integration
+**** Phase 2: GDExtension Template Integration
 - 1177227 :: example register_types (new register_types.cpp/h)
 - 520202c :: most of the example files from the gdextension template repo
   - Added .clang-format, .editorconfig, CMakeLists.txt
@@ -20,7 +87,7 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
   - Added extension_api.json
   - Added godot-midi/ demo project structure
 
-*** Phase 3: Code Migration
+**** Phase 3: Code Migration
 - a02ad90 :: update godot-cpp submodule version to 4.5-stable
 - 7df3307 :: it builds; there is finish work left
   - Removed src/gdlibrary.cpp (GDNative entry point - obsolete)
@@ -31,7 +98,7 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
     - soundfont_file_reader.cpp/h
     - register_types.cpp/h
 
-*** Phase 4: Polish & Fixes
+**** Phase 4: Polish & Fixes
 - 74c02fa :: README contains info that should be issues etc
 - 02ce372 :: edits to gdscript to get it to open in Godot Editor locally
   - Updated addon scripts for Godot 4 API
@@ -42,25 +109,25 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
 - da9da75 :: use AudioServer mix_rate in gdmidiplayer::init()
 - d75bcda :: checkout godot-cpp to godot-4.5 branch
 
-** Key API Changes (GDNative → GDExtension)
+*** Key API Changes (GDNative → GDExtension)
 
-*** Class Registration
+**** Class Registration
 - Old: ~godot_nativescript_init()~ with manual bindings
 - New: ~GDREGISTER_CLASS()~ in ~register_types.cpp~
 
-*** Header Includes
+**** Header Includes
 - Old: ~#include <Godot.hpp>~, ~#include <Reference.hpp>~
 - New: ~#include <godot_cpp/...>~ namespaced headers
 
-*** Class Inheritance
+**** Class Inheritance
 - Old: ~class GDMidiPlayer : public AudioStreamPlayer~
 - New: Uses ~GDCLASS()~ macro, ~ClassDB::bind_method()~
 
-*** Entry Point
+**** Entry Point
 - Old: ~gdlibrary.cpp~ with ~godot_gdnative_init~
 - New: ~register_types.cpp~ with GDExtension initialization
 
-** Files Changed Summary
+*** Files Changed Summary
 
 | Category         | Files Modified/Added                                      |
 |------------------+-----------------------------------------------------------|
@@ -72,7 +139,10 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
 | Project Config   | project.godot, *.gdextension                              |
 | Tooling          | .clang-format, .editorconfig, .github/workflows/builds.yml|
 
-** Current Status
+*** TODO Current Status
+:PROPERTIES:
+:ID:       4e3a4851-6625-4df5-8559-7d711aed5379
+:END:
 - [X] Project converts with Godot migration tool
 - [X] godot-cpp submodule updated to 4.5-stable
 - [X] Build system updated (SConstruct)
@@ -80,8 +150,6 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
 - [X] GDScript addons updated for Godot 4
 - [X] AudioServer mix_rate used in initialization
 - [ ] Runtime testing (to be verified)
+- [ ] cleanup
+- [ ] documentation
 - [ ] CI/CD workflow verification
-
-** Notes from README
-- Remaining work mentioned in commit 7df3307
-- Issues and TODOs documented in README.md

@@ -1,10 +1,9 @@
 godot-gdnative-fluidsynth
 =========================
 
-Godot gdnative fluidsynth library to allow playing music using fluidsynth.
+Godot gdnative fluidsynth library to allow playing music using fluidsynth. Provides some primitives like ~AudioStreamMidiTrack~ and ~EventStreamMidiTrack~.
 
 ## Contents
-* An empty Godot project (`demo/`)
 * godot-cpp as a submodule (`godot-cpp/`)
 * GitHub Issues template (`.github/ISSUE_TEMPLATE.yml`)
 * GitHub CI/CD workflows to publish your library packages when creating a release (`.github/workflows/builds.yml`)
