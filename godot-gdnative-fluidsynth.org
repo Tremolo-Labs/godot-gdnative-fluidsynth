@@ -65,6 +65,66 @@ Compile gdnative library:
     make
 #+end_src
 
+
+*** Project Overview
+
+Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
+- ~GDMidiAudioStreamPlayer~ - AudioStreamPlayer subclass for MIDI playback
+- ~MidiFileReader~ - Resource class for loading .mid files
+- ~SoundFontFileReader~ - Resource class for loading .sf2 soundfont files
+
+*** Build Commands
+
+**** Prerequisites (Ubuntu/Debian)
+#+begin_src shell :tangle no
+apt install fluidsynth libfluidsynth-dev scons
+#+end_src
+
+**** First-time setup
+#+begin_src shell :tangle no
+git submodule update --init --recursive
+#+end_src
+
+**** Build the extension
+#+begin_src shell :tangle no
+# Debug build (default)
+scons platform=linux
+
+# Release build
+scons target=template_release platform=linux
+
+# With compile_commands.json for IDE support
+scons compiledb=yes platform=linux
+#+end_src
+
+*** Architecture
+
+**** Source Files (src/)
+| File                     | Purpose                                               |
+|--------------------------+-------------------------------------------------------|
+| register_types.cpp       | GDExtension entry point, registers all classes        |
+| gdmidiplayer.cpp/h       | Main GDMidiAudioStreamPlayer class wrapping FluidSynth|
+| midi_file_reader.cpp/h   | Resource loader for MIDI files                        |
+| soundfont_file_reader.cpp/h | Resource loader for SoundFont files               |
+
+**** Key Integration Pattern
+
+FluidSynth expects file paths, but Godot resources are in-memory. The extension uses a custom sfloader with memory callbacks (~my_open~, ~my_read~, ~my_seek~, ~my_tell~, ~my_close~) that interpret a pointer address encoded as a string (~"&%p"~) to load soundfonts from Godot's resource system.
+
+**** Build Output
+- ~bin/<platform>/~ - Raw build output
+- ~gdmidiplayer/bin/<platform>/~ - Copied for Godot project use
+
+*** Platform Support
+
+| Platform | Method    | Status    |
+|----------+-----------+-----------|
+| Linux    | pkg-config| Supported |
+| Windows  | vcpkg     | Supported |
+| macOS    | vcpkg     | Supported |
+| Android  | NDK       | Manual    |
+| iOS      | Xcode     | Manual    |
+| Web      | Emscripten| Manual    |
 ** Godot 4.5 Migration Summary
 
 *** Overview
@@ -155,7 +215,7 @@ Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDE
 :PROPERTIES:
 :ID:       28ba97c0-742d-43fe-8e5e-4b2521f4d93c
 :END:
-Right now I have two errors:
+Please add to each TODO subtree with a solution to fix the build. If it's a big hassle we'll defer it but we want all the research available.
 
 ***** DEFER double-precision builds
 :PROPERTIES:
@@ -177,7 +237,7 @@ The workflow matrix now specifies ~float-precision: [single]~ only.
 Double-precision support is blocked on upstream providing a double-precision
 ~extension_api.json~, or us generating one from a double-precision Godot build.
 
-***** NEXT missing include
+***** DONE missing include
 :PROPERTIES:
 :ID:       13f927ab-3fac-4517-9439-b5dcccf9fd2a
 :END:
@@ -216,300 +276,7 @@ Mobile and web platforms require building fluidsynth from source (deferred).
 
 ******* Workflow Changes
 
-#+begin_src yaml :tangle .github/workflows/builds.yml
-name: Build GDExtension
-on:
-  workflow_call:
-  push:
-  pull_request:
-  merge_group:
-
-env:
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-
-jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          [
-            { platform: linux, arch: x86_64, os: ubuntu-22.04 },
-            { platform: linux, arch: x86_32, os: ubuntu-22.04 },
-            { platform: linux, arch: arm64, os: ubuntu-22.04-arm },
-            { platform: linux, arch: arm32, os: ubuntu-22.04-arm },
-            { platform: windows, arch: x86_64, os: windows-latest },
-            { platform: windows, arch: x86_32, os: windows-latest },
-            { platform: macos, arch: universal, os: macos-latest },
-          ]
-        target-type: [template_debug, template_release]
-        # Single precision only - godot-cpp extension_api.json is single-precision
-        # See: https://github.com/godotengine/godot-cpp/issues/1729
-        float-precision: [single]
-
-    runs-on: ${{ matrix.target.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      # === LINUX: Use apt ===
-      - name: Linux - Install fluidsynth
-        if: ${{ matrix.target.platform == 'linux' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfluidsynth-dev pkg-config
-
-      - name: Linux - Install multilib support
-        if: ${{ matrix.target.platform == 'linux' && matrix.target.arch == 'x86_32' }}
-        run: |
-          sudo apt-get install -y gcc-multilib g++-multilib
-
-      # === WINDOWS/MACOS: Use vcpkg ===
-      - name: Export GitHub Actions cache variables
-        if: ${{ matrix.target.platform == 'windows' || matrix.target.platform == 'macos' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-
-      - name: Windows/macOS - Setup vcpkg
-        if: ${{ matrix.target.platform == 'windows' || matrix.target.platform == 'macos' }}
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: "66c0373dc7fca549e5803087b9487edfe3aca0a1"
-
-      - name: Windows - Install fluidsynth (x86_64)
-        if: ${{ matrix.target.platform == 'windows' && matrix.target.arch == 'x86_64' }}
-        run: |
-          vcpkg install fluidsynth:x64-windows-static
-
-      - name: Windows - Install fluidsynth (x86_32)
-        if: ${{ matrix.target.platform == 'windows' && matrix.target.arch == 'x86_32' }}
-        run: |
-          vcpkg install fluidsynth:x86-windows-static
-
-      - name: macOS - Install fluidsynth
-        if: ${{ matrix.target.platform == 'macos' }}
-        run: |
-          vcpkg install fluidsynth:arm64-osx fluidsynth:x64-osx
-
-      # === BUILD ===
-      - name: Setup godot-cpp
-        uses: ./godot-cpp/.github/actions/setup-godot-cpp
-        with:
-          platform: ${{ matrix.target.platform }}
-
-      - name: Restore .scons_cache
-        uses: ./godot-cpp/.github/actions/godot-cache-restore
-        with:
-          scons-cache: ${{ github.workspace }}/.scons-cache/
-          cache-name: ${{ matrix.target.platform }}_${{ matrix.target.arch }}_${{ matrix.float-precision }}_${{ matrix.target-type }}
-
-      - name: Build GDExtension (Linux)
-        if: ${{ matrix.target.platform == 'linux' }}
-        shell: sh
-        env:
-          SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
-        run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
-
-      - name: Build GDExtension (Windows/macOS)
-        if: ${{ matrix.target.platform == 'windows' || matrix.target.platform == 'macos' }}
-        shell: sh
-        env:
-          SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
-          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-        run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
-
-      - name: Save .scons_cache
-        uses: ./godot-cpp/.github/actions/godot-cache-save
-        with:
-          scons-cache: ${{ github.workspace }}/.scons-cache/
-          cache-name: ${{ matrix.target.platform }}_${{ matrix.target.arch }}_${{ matrix.float-precision }}_${{ matrix.target-type }}
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gdmidiplayer-${{ matrix.target.platform }}-${{ matrix.target.arch }}-${{ matrix.float-precision }}-${{ matrix.target-type }}
-          path: |
-            ${{ github.workspace }}/bin/**
-
-  merge:
-    runs-on: ubuntu-22.04
-    needs: build
-    steps:
-      - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v4
-        with:
-          name: gdmidiplayer
-          pattern: gdmidiplayer-*
-          delete-merged: true
-#+end_src
-
-******* SConstruct Changes
-
-#+begin_src python :tangle SConstruct
-#!/usr/bin/env python
-import os
-import sys
-import subprocess
-
-from methods import print_error
-
-
-libname = "gdmidiplayer"
-projectdir = "gdmidiplayer"
-
-localEnv = Environment(tools=["default"], PLATFORM="")
-
-customs = ["custom.py"]
-customs = [os.path.abspath(path) for path in customs]
-
-opts = Variables(customs, ARGUMENTS)
-opts.Update(localEnv)
-
-Help(opts.GenerateHelpText(localEnv))
-
-env = localEnv.Clone()
-
-if not (os.path.isdir("godot-cpp") and os.listdir("godot-cpp")):
-    print_error("""godot-cpp is not available within this folder, as Git submodules haven't been initialized.
-Run the following command to download godot-cpp:
-
-    git submodule update --init --recursive""")
-    sys.exit(1)
-
-env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
-
-env.Append(CPPPATH=["src/"])
-
-
-# =============================================================================
-# Fluidsynth Configuration
-# =============================================================================
-
-def configure_fluidsynth_pkgconfig(env):
-    """Configure fluidsynth using pkg-config (Linux)."""
-    try:
-        cflags = subprocess.check_output(
-            ["pkg-config", "--cflags", "fluidsynth"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-        libs = subprocess.check_output(
-            ["pkg-config", "--libs", "fluidsynth"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-
-        env.MergeFlags(cflags)
-        env.MergeFlags(libs)
-        print("Found fluidsynth via pkg-config")
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
-
-
-def configure_fluidsynth_vcpkg(env):
-    """Configure fluidsynth using vcpkg (Windows/macOS)."""
-    vcpkg_root = os.environ.get("VCPKG_ROOT", "")
-    if not vcpkg_root:
-        return False
-
-    platform = env.get("platform", "")
-    arch = env.get("arch", "")
-
-    # Determine vcpkg triplet
-    if platform == "windows":
-        if arch == "x86_64":
-            triplet = "x64-windows-static"
-        elif arch == "x86_32":
-            triplet = "x86-windows-static"
-        else:
-            return False
-    elif platform == "macos":
-        # For universal builds, prefer arm64 headers (they're the same)
-        triplet = "arm64-osx"
-    else:
-        return False
-
-    installed_path = os.path.join(vcpkg_root, "installed", triplet)
-    include_path = os.path.join(installed_path, "include")
-    lib_path = os.path.join(installed_path, "lib")
-
-    if not os.path.isdir(include_path):
-        print(f"vcpkg include path not found: {include_path}")
-        return False
-
-    env.Append(CPPPATH=[include_path])
-    env.Append(LIBPATH=[lib_path])
-
-    if platform == "windows":
-        # Static linking on Windows
-        env.Append(LIBS=["fluidsynth", "glib-2.0", "intl", "iconv"])
-    elif platform == "macos":
-        # On macOS with universal builds, we need both architectures
-        arm64_lib = os.path.join(vcpkg_root, "installed", "arm64-osx", "lib")
-        x64_lib = os.path.join(vcpkg_root, "installed", "x64-osx", "lib")
-        env.Append(LIBPATH=[arm64_lib, x64_lib])
-        env.Append(LIBS=["fluidsynth"])
-
-    print(f"Found fluidsynth via vcpkg ({triplet})")
-    return True
-
-
-def configure_fluidsynth_fallback(env):
-    """Fallback: assume standard system paths."""
-    env.Append(LIBS=["fluidsynth"])
-    print("Using fluidsynth fallback (standard system paths)")
-
-
-# Try configuration methods in order of preference
-platform = env.get("platform", "")
-
-if platform == "linux":
-    if not configure_fluidsynth_pkgconfig(env):
-        configure_fluidsynth_fallback(env)
-elif platform in ["windows", "macos"]:
-    if not configure_fluidsynth_vcpkg(env):
-        if not configure_fluidsynth_pkgconfig(env):
-            configure_fluidsynth_fallback(env)
-else:
-    # Android, iOS, web - not yet supported
-    print(f"WARNING: Fluidsynth not configured for platform '{platform}'")
-    print("         Build may fail due to missing fluidsynth dependency")
-    configure_fluidsynth_fallback(env)
-
-
-# =============================================================================
-# Build Configuration
-# =============================================================================
-
-sources = Glob("src/*.cpp")
-
-if env["target"] in ["editor", "template_debug"]:
-    try:
-        doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("doc_classes/*.xml"))
-        sources.append(doc_data)
-    except AttributeError:
-        print("Not including class reference as we're targeting a pre-4.3 baseline.")
-
-suffix = env['suffix'].replace(".dev", "").replace(".universal", "")
-
-lib_filename = "{}{}{}{}".format(env.subst('$SHLIBPREFIX'), libname, suffix, env.subst('$SHLIBSUFFIX'))
-
-library = env.SharedLibrary(
-    "bin/{}/{}".format(env['platform'], lib_filename),
-    source=sources,
-)
-
-copy = env.Install("{}/bin/{}/".format(projectdir, env["platform"]), library)
-
-default_args = [library, copy]
-Default(*default_args)
-#+end_src
+#+transclude: [[file:SConstruct::Build Configuration]]  :src python :rest ":tangle SConstruct"
 
 ****** DEFER Android builds
 :PROPERTIES:
@@ -678,6 +445,137 @@ WebAssembly requires [[https://github.com/jet2jet/fluidsynth-emscripten][fluidsy
 
 - [[https://github.com/jet2jet/fluidsynth-emscripten][jet2jet/fluidsynth-emscripten]] - maintained fork
 - [[https://www.npmjs.com/package/@nicebyte/js-synthesizer][js-synthesizer]] - high-level wrapper for browser use
+
+***** TODO 32-bit builds on linux
+:PROPERTIES:
+:ID:       de1ec078-7446-470a-8d0e-30f76858524d
+:END:
+they're failing like this on the =Build GDExtension (Linux)= task:
+#+begin_example
+053
+Linking Static Library godot-cpp/bin/libgodot-cpp.linux.template_debug.x86_32.a ...
+Ranlib Library godot-cpp/bin/libgodot-cpp.linux.template_debug.x86_32.a ...
+Linking Shared Library bin/linux/libgdmidiplayer.linux.template_debug.x86_32.so ...
+/usr/bin/ld: skipping incompatible /usr/lib/x86_64-linux-gnu/libfluidsynth.so when searching for -lfluidsynth
+/usr/bin/ld: cannot find -lfluidsynth: No such file or directory
+/usr/bin/ld: skipping incompatible /usr/lib/x86_64-linux-gnu/libfluidsynth.so when searching for -lfluidsynth
+collect2: error: ld returned 1 exit status
+scons: *** [bin/linux/libgdmidiplayer.linux.template_debug.x86_32.so] Error 1
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+***** TODO 64-bit Windows builds
+:PROPERTIES:
+:ID:       d6cfccd2-1fc8-4f03-b253-672c8bbb6aeb
+:END:
+in =Setup godot-cpp=:
+#+begin_example
+33
+Downloading package from source 'https://community.chocolatey.org/api/v2/'
+[NuGet] Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+[NuGet] Response status code does not indicate success: 504 (Gateway Time-out).
+[NuGet] Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+[NuGet] Response status code does not indicate success: 504 (Gateway Time-out).
+mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+mingw package files upgrade failed with exit code 1. Performing other installation steps.
+The upgrade of mingw was NOT successful.
+mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+
+Chocolatey upgraded 0/1 packages. 1 packages failed.
+ See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).
+
+Failures
+ - mingw (exited 1) - mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+
+Did you know the proceeds of Pro (and some proceeds from other
+ licensed editions) go into bettering the community infrastructure?
+ Your support ensures an active community, keeps Chocolatey tip-top,
+ plus it nets you some awesome features!
+ https://chocolatey.org/compare
+Remove-Item: D:\a\_temp\a1a525d3-d1cd-4e8d-9bdc-8b0d5ba16709.ps1:140
+Line |
+ 140 |          Remove-Item (Join-Path $mingw_lib 'libpthread.dll.a')
+     |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot find path
+     | 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\x86_64-w64-mingw32\lib\libpthread.dll.a' because it
+     | does not exist.
+Error: Process completed with exit code 1.
+
+#+end_example
+
+***** TODO 32-bit Windows builds
+:PROPERTIES:
+:ID:       e82d8281-e21a-4e20-ad82-ffbc5b63d6b1
+:END:
+in =Build GDExtension (Windows/macOS)=:
+
+=template_release=:
+#+begin_example
+Compiling godot-cpp\gen\src\classes\mesh_instance3d.cpp ...
+Error: src\gdmidiplayer.cpp(18): error C2036: 'void *': unknown size
+Error: src\gdmidiplayer.cpp(159): error C2131: expression did not evaluate to a constant
+src\gdmidiplayer.cpp(159): note: failure was caused by call of undefined function or one not declared 'constexpr'
+src\gdmidiplayer.cpp(159): note: see usage of 'godot::PackedByteArray::size'
+Error: src\gdmidiplayer.cpp(162): error C3863: array type 'char ['function']' is not assignable
+scons: *** [src\gdmidiplayer.windows.template_debug.x86_32.obj] Error 2
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+=template_debug=:
+#+begin_example
+Compiling godot-cpp\gen\src\classes\parallax2d.cpp ...
+Error: src\gdmidiplayer.cpp(18): error C2036: 'void *': unknown size
+Error: src\gdmidiplayer.cpp(159): error C2131: expression did not evaluate to a constant
+src\gdmidiplayer.cpp(159): note: failure was caused by call of undefined function or one not declared 'constexpr'
+src\gdmidiplayer.cpp(159): note: see usage of 'godot::PackedByteArray::size'
+Error: src\gdmidiplayer.cpp(162): error C3863: array type 'char ['function']' is not assignable
+scons: *** [src\gdmidiplayer.windows.template_release.x86_32.obj] Error 2
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+***** TODO macOS universal builds:
+:PROPERTIES:
+:ID:       25a0ac3a-542e-423f-8bc1-0658e5132e12
+:END:
+#+begin_example
+040
+Compiling godot-cpp/gen/src/classes/animation_node_output.cpp ...
+Error: src/gdmidiplayer.cpp:18:22: error: arithmetic on a pointer to void
+   18 |         memcpy(buf, (handle + position), count);
+      |                      ~~~~~~ ^
+Warning: src/gdmidiplayer.cpp:133:3: warning: 'sprintf' is deprecated: This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead. [-Wdeprecated-declarations]
+  133 |                 sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+      |                 ^
+/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_stdio.h:278:1: note: 'sprintf' has been explicitly marked deprecated here
+  278 | __deprecated_msg("This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead.")
+      | ^
+/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h:218:48: note: expanded from macro '__deprecated_msg'
+  218 |         #define __deprecated_msg(_msg) __attribute__((__deprecated__(_msg)))
+      |                                                       ^
+Warning: src/gdmidiplayer.cpp:159:19: warning: variable length arrays in C++ are a Clang extension [-Wvla-cxx-extension]
+  159 |                         char midi_file[byte_array.size()];
+      |                                        ^~~~~~~~~~~~~~~~~
+src/gdmidiplayer.cpp:159:30: note: non-constexpr function 'size' cannot be used in a constant expression
+  159 |                         char midi_file[byte_array.size()];
+      |                                                   ^
+godot-cpp/gen/include/godot_cpp/variant/packed_byte_array.hpp:165:10: note: declared here
+  165 |         int64_t size() const;
+      |                 ^
+2 warnings and 1 error generated.
+scons: *** [src/gdmidiplayer.os] Error 1
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
 
 **** DEFER - [ ] Runtime testing (to be verified)
 :PROPERTIES:
