@@ -15,7 +15,7 @@ void *my_open(const char *filename) {
 }
 
 int my_read(void *buf, long long count, void *handle) {
-	memcpy(buf, (handle + position), count);
+	memcpy(buf, static_cast<char*>(handle) + position, count);
 	position = position + count;
 
 	return FLUID_OK;
@@ -130,7 +130,7 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 		Ref<SoundFontFileReader> soundfont_file = resource;
 		char abused_filename[64];
 		const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
-		sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+		snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
 		fsize = soundfont_file->get_array_size();
 		sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
 	}
@@ -156,13 +156,8 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
 		PackedByteArray byte_array = midi->get_data();
 
 		if (byte_array.size() > 0) {
-			char midi_file[byte_array.size()];
-
-			for (int i = 0; i < byte_array.size(); i++) {
-				midi_file[i] = byte_array[i];
-			}
-
-			fluid_player_add_mem(player, midi_file, byte_array.size());
+			// fluid_player_add_mem copies the data internally
+			fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
 		}
 
 		fluid_player_play(player);
