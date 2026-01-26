@@ -466,6 +466,137 @@ Error: Process completed with exit code 2.
 
 #+end_example
 
+****** Root Cause Analysis
+
+The linker finds the 64-bit ~libfluidsynth.so~ but skips it because it's
+incompatible with the 32-bit target. The workflow installs ~gcc-multilib~ and
+~g++-multilib~ for cross-compilation toolchains, but does not install the 32-bit
+fluidsynth library (~libfluidsynth-dev:i386~).
+
+Ubuntu uses multiarch: 32-bit libraries install to ~/usr/lib/i386-linux-gnu/~
+while 64-bit goes to ~/usr/lib/x86_64-linux-gnu/~. The ~pkg-config~ call in
+SConstruct returns 64-bit paths regardless of target architecture.
+
+****** Solution Options
+
+******* Option A: Install 32-bit fluidsynth via multiarch (Recommended)
+
+Pros:
+- Native package manager integration
+- Automatic dependency resolution
+- Matches the 64-bit approach
+
+Cons:
+- Requires enabling i386 architecture on GitHub runners
+- May have dependency conflicts with 64-bit packages
+- Ubuntu 22.04 runners may not have ~libfluidsynth-dev:i386~ readily available
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Linux - Install 32-bit fluidsynth
+  if: ${{ matrix.target.platform == 'linux' && matrix.target.arch == 'x86_32' }}
+  run: |
+    sudo dpkg --add-architecture i386
+    sudo apt-get update
+    sudo apt-get install -y libfluidsynth-dev:i386 pkg-config:i386
+#+end_src
+
+SConstruct would need modification to use ~pkg-config~ with ~PKG_CONFIG_PATH~
+pointing to 32-bit libraries:
+#+begin_src python :tangle no
+if platform == "linux" and arch == "x86_32":
+    env["ENV"]["PKG_CONFIG_PATH"] = "/usr/lib/i386-linux-gnu/pkgconfig"
+#+end_src
+
+******* Option B: Cross-compile fluidsynth from source
+
+Pros:
+- Full control over build configuration
+- Works even if 32-bit packages unavailable
+- Can optimize for specific use case
+
+Cons:
+- Significantly increases CI build time
+- Must also cross-compile fluidsynth's dependencies (glib, etc.)
+- Complex CMake cross-compilation setup
+- Maintenance burden
+
+Implementation would require a separate job to build fluidsynth:
+#+begin_src yaml :tangle no
+- name: Build fluidsynth for i386
+  run: |
+    git clone --depth 1 https://github.com/FluidSynth/fluidsynth.git
+    cd fluidsynth
+    mkdir build && cd build
+    cmake .. \
+      -DCMAKE_C_FLAGS="-m32" \
+      -DCMAKE_CXX_FLAGS="-m32" \
+      -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/fluidsynth-i386 \
+      -DBUILD_SHARED_LIBS=OFF \
+      -Denable-readline=OFF \
+      -Denable-dbus=OFF
+    make -j$(nproc)
+    make install
+#+end_src
+
+******* Option C: Skip 32-bit Linux builds (Pragmatic)
+
+Pros:
+- Zero additional complexity
+- 32-bit Linux usage is extremely rare in 2025+
+- Godot itself barely supports 32-bit Linux (deprecated)
+- Allows focus on platforms users actually need
+
+Cons:
+- Incomplete platform coverage
+- May disappoint edge-case users
+
+Implementation: Remove ~x86_32~ from Linux targets in workflow matrix:
+#+begin_src yaml :tangle no
+target:
+  [
+    { platform: linux, arch: x86_64, os: ubuntu-22.04 },
+    # { platform: linux, arch: x86_32, os: ubuntu-22.04 },  # Removed
+    { platform: linux, arch: arm64, os: ubuntu-22.04-arm },
+    { platform: linux, arch: arm32, os: ubuntu-22.04-arm },
+    # ...
+  ]
+#+end_src
+
+******* Option D: Use Docker container with 32-bit environment
+
+Pros:
+- Completely isolated 32-bit environment
+- No multiarch conflicts
+- Reproducible builds
+
+Cons:
+- Adds Docker complexity to workflow
+- Slower than native builds
+- Requires maintaining a container image
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Build 32-bit Linux in container
+  if: ${{ matrix.target.arch == 'x86_32' }}
+  uses: docker://i386/ubuntu:22.04
+  with:
+    args: |
+      apt-get update && apt-get install -y libfluidsynth-dev scons
+      scons platform=linux arch=x86_32
+#+end_src
+
+****** Recommendation
+
+**Option C (Skip 32-bit Linux)** is the most pragmatic choice:
+- Godot 4.x has effectively deprecated 32-bit Linux support
+- The effort to maintain 32-bit builds exceeds their utility
+- Users requiring 32-bit can build from source locally
+
+If 32-bit support is required, **Option A** is the cleanest approach, but
+requires testing whether ~libfluidsynth-dev:i386~ is available and whether
+pkg-config correctly resolves 32-bit paths.
+
 ***** TODO 64-bit Windows builds
 :PROPERTIES:
 :ID:       d6cfccd2-1fc8-4f03-b253-672c8bbb6aeb
@@ -508,6 +639,148 @@ Error: Process completed with exit code 1.
 
 #+end_example
 
+****** Root Cause Analysis
+
+The failure occurs in ~godot-cpp/.github/actions/setup-godot-cpp~, which uses
+Chocolatey to install MinGW. The Chocolatey community repository is experiencing
+a 504 Gateway Timeout, which is a transient infrastructure issue.
+
+The secondary error (~Remove-Item~ failing) is a cascade failure: the script
+assumes MinGW installed successfully and tries to patch it.
+
+This is an *upstream dependency issue* in godot-cpp's setup action, not a
+problem with this project's workflow configuration.
+
+****** Solution Options
+
+******* Option A: Use MSVC instead of MinGW (Recommended)
+
+Pros:
+- MSVC is pre-installed on ~windows-latest~ runners (no download needed)
+- No dependency on external package repositories
+- Better Windows ABI compatibility
+- Native Microsoft toolchain
+
+Cons:
+- Requires fixing C++ code to be MSVC-compatible (see 32-bit Windows TODO)
+- Different compiler warnings/errors to address
+- May need to adjust SConstruct for MSVC flags
+
+Implementation: Override the godot-cpp setup to use MSVC:
+#+begin_src yaml :tangle no
+- name: Setup godot-cpp (MSVC)
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    # Skip MinGW setup, MSVC is pre-installed
+    # Use Visual Studio Developer Command Prompt
+    call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+#+end_src
+
+godot-cpp supports MSVC via the ~use_mingw=no~ flag (default on Windows).
+
+******* Option B: Use pre-installed MinGW on GitHub runners
+
+GitHub's ~windows-latest~ runners include MinGW-w64 at:
+~C:\Program Files\mingw64~ (GCC 12.2.0 as of 2024)
+
+Pros:
+- No download required
+- Already available on runner
+- Maintains MinGW compatibility
+
+Cons:
+- Requires forking or overriding godot-cpp's setup action
+- Runner's MinGW version may differ from Chocolatey's
+- Still subject to MinGW-specific code issues
+
+Implementation: Set ~PATH~ before running setup:
+#+begin_src yaml :tangle no
+- name: Use pre-installed MinGW
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    echo "C:\Program Files\mingw64\bin" >> $env:GITHUB_PATH
+  shell: pwsh
+#+end_src
+
+******* Option C: Cache MinGW installation
+
+Pros:
+- Avoids repeated downloads
+- Resilient to Chocolatey outages after first successful run
+
+Cons:
+- First build still requires Chocolatey access
+- Cache invalidation complexity
+- Doesn't solve the immediate problem
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Cache MinGW
+  uses: actions/cache@v4
+  with:
+    path: C:\ProgramData\chocolatey\lib\mingw
+    key: mingw-12.2.0-${{ runner.os }}
+#+end_src
+
+******* Option D: Download MinGW from alternative source
+
+Pros:
+- Bypasses Chocolatey entirely
+- Can pin exact version
+- More reliable than community package managers
+
+Cons:
+- Manual version management
+- Need to handle extraction and PATH setup
+- Security considerations for third-party downloads
+
+Implementation: Download from [[https://github.com/niXman/mingw-builds-binaries/releases][niXman's MinGW builds]]:
+#+begin_src yaml :tangle no
+- name: Install MinGW manually
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    Invoke-WebRequest -Uri "https://github.com/niXman/mingw-builds-binaries/releases/download/12.2.0-rt_v10-rev2/x86_64-12.2.0-release-posix-seh-ucrt-rt_v10-rev2.7z" -OutFile mingw.7z
+    7z x mingw.7z -oC:\
+    echo "C:\mingw64\bin" >> $env:GITHUB_PATH
+  shell: pwsh
+#+end_src
+
+******* Option E: Wait and retry (Temporary workaround)
+
+Chocolatey outages are usually temporary. Re-running the workflow may succeed.
+
+Pros:
+- No code changes needed
+- May work if it's truly transient
+
+Cons:
+- Not a real solution
+- Unreliable CI
+- Poor developer experience
+
+****** Recommendation
+
+**Option A (Use MSVC)** is the best long-term solution:
+- Eliminates external package manager dependency
+- MSVC is the native Windows compiler with best compatibility
+- Pre-installed on all Windows runners
+
+However, this requires first fixing the C++ compilation errors documented in the
+32-bit Windows and macOS TODOs (void pointer arithmetic, VLAs). Those code fixes
+are prerequisites for MSVC builds.
+
+**Short-term**: **Option B** (use pre-installed MinGW) can unblock builds while
+code fixes are developed:
+#+begin_src yaml :tangle no
+- name: Setup godot-cpp
+  uses: ./godot-cpp/.github/actions/setup-godot-cpp
+  with:
+    platform: ${{ matrix.target.platform }}
+  env:
+    # Skip Chocolatey, use pre-installed MinGW
+    PATH: "C:\\Program Files\\mingw64\\bin;${{ env.PATH }}"
+#+end_src
+
 ***** TODO 32-bit Windows builds
 :PROPERTIES:
 :ID:       e82d8281-e21a-4e20-ad82-ffbc5b63d6b1
@@ -541,6 +814,162 @@ scons: building terminated because of errors.
 Error: Process completed with exit code 2.
 
 #+end_example
+
+****** Root Cause Analysis
+
+These are C++ standards compliance errors. The code uses GCC/Clang extensions
+that MSVC (and strict C++ mode) rejects:
+
+******* Error 1: ~void *~ arithmetic (line 18)
+
+#+begin_src cpp :tangle no
+memcpy(buf, (handle + position), count);  // handle is void*
+#+end_src
+
+In standard C++, ~void*~ has no size, so pointer arithmetic is undefined.
+GCC/Clang allow this as an extension (treating ~void*~ like ~char*~), but
+MSVC strictly follows the standard and rejects it.
+
+******* Error 2: Variable-Length Array (line 159)
+
+#+begin_src cpp :tangle no
+char midi_file[byte_array.size()];  // VLA - not allowed in C++
+#+end_src
+
+Variable-Length Arrays (VLAs) are a C99 feature. They're not part of any C++
+standard. GCC/Clang support them as an extension, but MSVC does not.
+
+******* Error 3: Array assignment (line 162)
+
+#+begin_src cpp :tangle no
+midi_file[i] = byte_array[i];  // This error is a cascade from the VLA issue
+#+end_src
+
+This error occurs because MSVC interprets ~midi_file~ as a function-like entity
+due to the failed VLA parse, not because the assignment itself is invalid.
+
+****** Solution Options
+
+******* Option A: Fix code for C++ standards compliance (Recommended)
+
+This is the correct long-term solution. All three issues have straightforward fixes:
+
+*Fix for void* arithmetic* (line 18):
+#+begin_src cpp :tangle no
+// Before:
+memcpy(buf, (handle + position), count);
+
+// After - cast to char* for byte-level arithmetic:
+memcpy(buf, (static_cast<char*>(handle) + position), count);
+
+// Or use uint8_t* for clarity:
+memcpy(buf, (static_cast<uint8_t*>(handle) + position), count);
+#+end_src
+
+*Fix for VLA* (lines 159-163):
+#+begin_src cpp :tangle no
+// Before:
+char midi_file[byte_array.size()];
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file, byte_array.size());
+
+// After - Option 1: Use std::vector (heap allocation):
+std::vector<char> midi_file(byte_array.size());
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file.data(), byte_array.size());
+
+// After - Option 2: Direct pointer access (zero-copy, if PackedByteArray allows):
+const uint8_t* midi_data = byte_array.ptr();
+fluid_player_add_mem(player, midi_data, byte_array.size());
+
+// After - Option 3: Use unique_ptr for explicit heap allocation:
+auto midi_file = std::make_unique<char[]>(byte_array.size());
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file.get(), byte_array.size());
+#+end_src
+
+Pros:
+- Code works on all compilers (GCC, Clang, MSVC)
+- Standards-compliant
+- No runtime overhead with Option 2 (zero-copy)
+
+Cons:
+- Requires code changes
+- Need to verify ~PackedByteArray::ptr()~ returns suitable pointer
+
+******* Option B: Force GCC extensions in MSVC
+
+MSVC has some GCC compatibility, but VLAs are not supported even with
+compatibility flags. This option is not viable for the VLA issue.
+
+******* Option C: Use MinGW instead of MSVC on Windows
+
+Pros:
+- MinGW uses GCC, which accepts the current code
+- No code changes needed
+
+Cons:
+- Subject to MinGW availability issues (see 64-bit Windows TODO)
+- Masks underlying code quality issues
+- GCC extensions are non-portable
+
+******* Option D: Skip 32-bit Windows builds
+
+Similar to the 32-bit Linux discussion, 32-bit Windows is increasingly rare.
+
+Pros:
+- No immediate work required
+- 32-bit Windows is declining
+
+Cons:
+- Some users may still need 32-bit builds
+- Doesn't fix the underlying code issues (which affect macOS too)
+
+****** Recommendation
+
+**Option A (Fix code for standards compliance)** is strongly recommended:
+
+1. The fixes are straightforward and well-understood
+2. The same fixes resolve macOS universal build errors
+3. Results in more portable, maintainable code
+4. Enables MSVC builds, removing MinGW/Chocolatey dependency
+
+Suggested patch for ~src/gdmidiplayer.cpp~:
+#+begin_src cpp :tangle no
+// Line 18 - fix void* arithmetic:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, static_cast<char*>(handle) + position, count);
+    position = position + count;
+    return FLUID_OK;
+}
+
+// Lines 156-166 - fix VLA with direct pointer access:
+void GDMidiAudioStreamPlayer::fluidsynth_play() {
+    if (ResourceLoader::get_singleton()->exists(midi_file)) {
+        Variant resource = ResourceLoader::get_singleton()->load(midi_file);
+        Ref<MidiFileReader> midi = resource;
+        PackedByteArray byte_array = midi->get_data();
+
+        if (byte_array.size() > 0) {
+            // Use PackedByteArray's internal pointer directly
+            fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+        }
+
+        fluid_player_play(player);
+        fluidsynth_playing = true;
+    }
+}
+#+end_src
+
+**Note**: Verify that ~fluid_player_add_mem~ does not store the pointer beyond
+the function call. If it does, the ~std::vector~ approach is safer as it
+ensures the data remains valid.
 
 ***** TODO macOS universal builds:
 :PROPERTIES:
@@ -576,6 +1005,299 @@ scons: building terminated because of errors.
 Error: Process completed with exit code 2.
 
 #+end_example
+
+****** Root Cause Analysis
+
+The macOS build uses Apple Clang via Xcode 16.4, which has stricter defaults than
+Linux GCC. Three issues are reported:
+
+******* Error: ~void *~ arithmetic (line 18)
+
+Same issue as Windows builds. Apple Clang treats this as an error by default
+(GCC/Linux Clang treat it as a warning with ~-fpermissive~).
+
+******* Warning: ~sprintf~ deprecation (line 133)
+
+Apple's SDK explicitly deprecates ~sprintf~ due to buffer overflow risks. This
+is a warning, not an error, but indicates code quality issues.
+
+#+begin_src cpp :tangle no
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+#+end_src
+
+******* Warning: VLA as Clang extension (line 159)
+
+Same VLA issue as Windows. Apple Clang warns that VLAs are an extension and
+notes that ~PackedByteArray::size()~ is not ~constexpr~, so the array size
+cannot be determined at compile time.
+
+****** Solution Options
+
+******* Option A: Fix all code issues (Recommended)
+
+The same fixes from the 32-bit Windows TODO apply here, plus the ~sprintf~ fix:
+
+*Fix void* arithmetic* (line 18):
+#+begin_src cpp :tangle no
+memcpy(buf, static_cast<char*>(handle) + position, count);
+#+end_src
+
+*Fix sprintf deprecation* (line 133):
+#+begin_src cpp :tangle no
+// Before:
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+
+// After - use snprintf with explicit buffer size:
+snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+#+end_src
+
+*Fix VLA* (line 159):
+#+begin_src cpp :tangle no
+// Use direct pointer access (see 32-bit Windows TODO for full context)
+fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+#+end_src
+
+Pros:
+- Resolves all errors and warnings
+- Standards-compliant code
+- Works on all platforms
+
+Cons:
+- Requires code changes
+
+******* Option B: Add compiler flags to suppress warnings/errors
+
+For the ~void *~ arithmetic, add ~-Wno-pointer-arith~ to Clang flags.
+For ~sprintf~, add ~-Wno-deprecated-declarations~.
+VLAs cannot be suppressed - they require code changes.
+
+Pros:
+- Minimal code changes (only VLA fix needed)
+
+Cons:
+- Suppresses potentially useful warnings
+- Masks code quality issues
+- VLA still requires fixing
+- Different flags for different compilers
+
+Implementation in SConstruct:
+#+begin_src python :tangle no
+if platform == "macos":
+    env.Append(CCFLAGS=["-Wno-pointer-arith", "-Wno-deprecated-declarations"])
+#+end_src
+
+******* Option C: Enable GCC extensions in Clang
+
+Clang supports ~-fgnu-extensions~ but this doesn't enable ~void *~ arithmetic.
+The ~-fms-extensions~ flag is for MSVC compatibility, not GCC.
+
+This option does not fully solve the problem.
+
+****** Recommendation
+
+**Option A (Fix all code issues)** is the only complete solution.
+
+The macOS errors share root causes with Windows errors, so a single set of fixes
+resolves both platforms. The complete patch for ~src/gdmidiplayer.cpp~ should:
+
+1. Cast ~void*~ to ~char*~ before arithmetic (line 18)
+2. Replace ~sprintf~ with ~snprintf~ (line 133)
+3. Replace VLA with direct ~PackedByteArray::ptr()~ access (lines 159-163)
+
+****** Complete Recommended Patch
+
+The following changes to ~src/gdmidiplayer.cpp~ will fix Windows (32/64-bit) and
+macOS builds:
+
+#+begin_src cpp :tangle no
+// === Line 18: Fix void* arithmetic ===
+// Before:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, (handle + position), count);
+    ...
+}
+// After:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, static_cast<char*>(handle) + position, count);
+    ...
+}
+
+// === Line 133: Fix sprintf deprecation ===
+// Before:
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+// After:
+snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+
+// === Lines 158-166: Fix VLA ===
+// Before:
+if (byte_array.size() > 0) {
+    char midi_file[byte_array.size()];
+    for (int i = 0; i < byte_array.size(); i++) {
+        midi_file[i] = byte_array[i];
+    }
+    fluid_player_add_mem(player, midi_file, byte_array.size());
+}
+// After:
+if (byte_array.size() > 0) {
+    // PackedByteArray::ptr() returns const uint8_t*
+    // fluid_player_add_mem expects void* and size
+    fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+}
+#+end_src
+
+****** Verification of fluid_player_add_mem Behavior
+
+Before using the zero-copy approach, verify FluidSynth's behavior:
+
+#+begin_src c :tangle no
+// From fluidsynth documentation:
+// int fluid_player_add_mem(fluid_player_t *player, const void *buffer, size_t len)
+//
+// "Add a MIDI file to a player queue, from a buffer in memory."
+// The buffer is COPIED internally by FluidSynth, so the original
+// can be freed after the call returns.
+#+end_src
+
+FluidSynth copies the MIDI data internally, so passing ~byte_array.ptr()~
+directly is safe - the ~PackedByteArray~ can go out of scope after the call.
+
+****** Alternative: std::vector for maximum safety
+
+If there's any doubt about FluidSynth's copy behavior, use ~std::vector~:
+
+#+begin_src cpp :tangle no
+#include <vector>
+
+// In fluidsynth_play():
+if (byte_array.size() > 0) {
+    std::vector<uint8_t> midi_data(byte_array.ptr(),
+                                    byte_array.ptr() + byte_array.size());
+    fluid_player_add_mem(player, midi_data.data(), midi_data.size());
+}
+#+end_src
+
+This creates an explicit copy, ensuring data lifetime is controlled.
+
+***** CI/CD Fix Implementation Summary
+:PROPERTIES:
+:ID:       a1b2c3d4-5678-90ab-cdef-1234567890ab
+:END:
+
+****** Issue Dependency Graph
+
+#+begin_example
+┌─────────────────────────────────────────────────────────────────┐
+│                     Code Quality Issues                          │
+│  (void* arithmetic, VLA, sprintf) - affects Windows & macOS      │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────┴──────────────────┐
+        │                                      │
+        ▼                                      ▼
+┌───────────────────┐              ┌───────────────────────┐
+│ 32-bit Windows    │              │ macOS Universal       │
+│ (MSVC errors)     │              │ (Clang errors)        │
+└───────────────────┘              └───────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   Infrastructure Issues                          │
+└─────────────────────────────────────────────────────────────────┘
+        │                                      │
+        ▼                                      ▼
+┌───────────────────┐              ┌───────────────────────┐
+│ 64-bit Windows    │              │ 32-bit Linux          │
+│ (MinGW/Choco)     │              │ (missing i386 lib)    │
+└───────────────────┘              └───────────────────────┘
+#+end_example
+
+****** Recommended Fix Order
+
+| Priority | Issue                | Fix                                      | Effort | Impact           |
+|----------+----------------------+------------------------------------------+--------+------------------|
+|        1 | Code quality (C++)   | Fix void*, VLA, sprintf in gdmidiplayer  | Low    | Unblocks 3 builds|
+|        2 | macOS universal      | Automatically fixed by Priority 1        | None   | macOS works      |
+|        3 | 32-bit Windows       | Automatically fixed by Priority 1        | None   | Win32 works      |
+|        4 | 64-bit Windows       | Use pre-installed MinGW or switch to MSVC| Low    | Win64 works      |
+|        5 | 32-bit Linux         | Skip (deprecated) or add multiarch       | Low    | Optional         |
+
+****** Minimal Viable Fix
+
+To unblock the most platforms with the least effort, apply this single patch to
+~src/gdmidiplayer.cpp~:
+
+#+begin_src diff :tangle no
+diff --git a/src/gdmidiplayer.cpp b/src/gdmidiplayer.cpp
+--- a/src/gdmidiplayer.cpp
++++ b/src/gdmidiplayer.cpp
+@@ -15,7 +15,7 @@ void *my_open(const char *filename) {
+ }
+
+ int my_read(void *buf, long long count, void *handle) {
+-	memcpy(buf, (handle + position), count);
++	memcpy(buf, static_cast<char*>(handle) + position, count);
+ 	position = position + count;
+
+ 	return FLUID_OK;
+@@ -130,7 +130,7 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
+ 		Ref<SoundFontFileReader> soundfont_file = resource;
+ 		char abused_filename[64];
+ 		const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
+-		sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
++		snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+ 		fsize = soundfont_file->get_array_size();
+ 		sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
+ 	}
+@@ -155,13 +155,8 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
+ 		PackedByteArray byte_array = midi->get_data();
+
+ 		if (byte_array.size() > 0) {
+-			char midi_file[byte_array.size()];
+-
+-			for (int i = 0; i < byte_array.size(); i++) {
+-				midi_file[i] = byte_array[i];
+-			}
+-
+-			fluid_player_add_mem(player, midi_file, byte_array.size());
++			// fluid_player_add_mem copies the data internally
++			fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+ 		}
+
+ 		fluid_player_play(player);
+#+end_src
+
+This patch:
+- Fixes macOS universal builds (Clang strict mode)
+- Fixes Windows 32-bit builds (MSVC compliance)
+- Eliminates deprecated API warning
+- Removes unnecessary data copy (performance improvement)
+
+****** Workflow Changes for 64-bit Windows
+
+After applying the code fix, update ~.github/workflows/builds.yml~ to avoid
+Chocolatey dependency:
+
+#+begin_src yaml :tangle no
+# Before the setup-godot-cpp step, add:
+- name: Windows - Use pre-installed MinGW
+  if: ${{ matrix.target.platform == 'windows' }}
+  shell: pwsh
+  run: |
+    # GitHub runners include MinGW-w64 at this path
+    echo "C:\Program Files\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+#+end_src
+
+Or switch to MSVC by not installing MinGW at all (godot-cpp defaults to MSVC).
+
+****** Deferred Items
+
+| Item              | Reason                                                    |
+|-------------------+-----------------------------------------------------------|
+| 32-bit Linux      | Godot 4.x deprecated 32-bit Linux; low user demand        |
+| Double-precision  | Blocked on upstream godot-cpp issue #1729                 |
+| Android           | Requires cross-compiling fluidsynth with NDK              |
+| iOS               | Requires cross-compiling fluidsynth with Xcode toolchain  |
+| WebAssembly       | Requires fluidsynth-emscripten fork                       |
 
 **** DEFER - [ ] Runtime testing (to be verified)
 :PROPERTIES:
