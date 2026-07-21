@@ -1,44 +1,39 @@
-tool
+@tool
 extends EditorImportPlugin
 
-const SoundFontFileReader = preload("res://bin/soundfont_file_reader.gdns")
-
-func get_importer_name():
+func _get_importer_name():
 	return "soundfont"
 
-func get_visible_name():
+func _get_visible_name():
 	return "SoundFont"
 
-func get_recognized_extensions():
+func _get_recognized_extensions():
 	return ["sf2"]
 
-func get_save_extension():
+func _get_save_extension():
 	return "sf2str"
 
-func get_resource_type():
+func _get_resource_type():
 	return "SoundFontFileReader"
 
-func get_option_visibility(option, options):
+func _get_option_visibility(_option, _option_name, _options):
 	return true
 
-func get_preset_count():
+func _get_preset_count():
 	return 1;
 
-func get_preset_name(preset):
+func _get_preset_name(_preset):
 	return "Default"
 
-func get_import_options(preset):
+func _get_import_options(_path, _preset):
 	return []
 
-func import(source_file, save_path, options, r_platform_variants, r_gen_files):
-	var file = File.new()
-	var err = file.open(source_file, File.READ)
-	if err != OK:
-		return err
-
-	var data = file.get_buffer(file.get_len())
+func _import(source_file, save_path, _options, _r_platform_variants, _r_gen_files):
+	var file = FileAccess.open(source_file, FileAccess.READ)
+	if file == null:
+		return ERR_FILE_CANT_OPEN
+	var data = file.get_buffer(file.get_length())
 	var soundfont_file = SoundFontFileReader.new()
 	soundfont_file.set_data(data)
 	file.close()
-
-	return ResourceSaver.save("%s.%s" % [save_path, get_save_extension()], soundfont_file)
+	return ResourceSaver.save(soundfont_file, "%s.%s" % [save_path, _get_save_extension()])
