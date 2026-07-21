@@ -1,8 +1,6 @@
 @tool
 extends EditorImportPlugin
 
-const SoundFontFileReader = preload("res://bin/soundfont_file_reader.gdns")
-
 func _get_importer_name():
 	return "soundfont"
 

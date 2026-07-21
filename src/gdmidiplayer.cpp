@@ -50,13 +50,16 @@ long long my_tell(void *handle) {
 }
 
 void GDMidiAudioStreamPlayer::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("_process", "delta"), &GDMidiAudioStreamPlayer::_process);
 	ClassDB::bind_method(D_METHOD("fluidsynth_play"), &GDMidiAudioStreamPlayer::fluidsynth_play);
 	ClassDB::bind_method(D_METHOD("program_select", "channel", "bank_num", "preset_num"), &GDMidiAudioStreamPlayer::program_select);
 	ClassDB::bind_method(D_METHOD("note_on", "channel", "key", "velocity"), &GDMidiAudioStreamPlayer::note_on);
 	ClassDB::bind_method(D_METHOD("note_off", "channel", "key"), &GDMidiAudioStreamPlayer::note_off);
 	ClassDB::bind_method(D_METHOD("pitch_bend", "channel", "value"), &GDMidiAudioStreamPlayer::pitch_bend);
+	ClassDB::bind_method(D_METHOD("set_soundfont", "soundfont"), &GDMidiAudioStreamPlayer::set_soundfont);
+	ClassDB::bind_method(D_METHOD("get_soundfont"), &GDMidiAudioStreamPlayer::get_soundfont);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "soundfont"), "set_soundfont", "get_soundfont");
+	ClassDB::bind_method(D_METHOD("set_midi_file", "midi_file"), &GDMidiAudioStreamPlayer::set_midi_file);
+	ClassDB::bind_method(D_METHOD("get_midi_file"), &GDMidiAudioStreamPlayer::get_midi_file);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
 }
 
@@ -90,7 +93,7 @@ void GDMidiAudioStreamPlayer::_init() {
 	stream_playback = get_stream_playback();
 }
 
-void GDMidiAudioStreamPlayer::_process(float delta) {
+void GDMidiAudioStreamPlayer::_process(double delta) {
 	if (fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
 		fluid_player_stop(player);
 		fluid_player_join(player);

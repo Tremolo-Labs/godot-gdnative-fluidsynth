@@ -1,8 +1,6 @@
 @tool
 extends EditorImportPlugin
 
-const MidiFileReader = preload("res://bin/midi_file_reader.gdns")
-
 func _get_importer_name():
 	return "midi"
 

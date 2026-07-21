@@ -41,7 +41,7 @@ public:
 
 	void _init(); // our initializer called by Godot
 
-	void _process(float delta);
+	void _process(double delta);
 	void set_soundfont(String p_soundfont);
 	String get_soundfont();
 

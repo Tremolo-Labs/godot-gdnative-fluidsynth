@@ -14,12 +14,10 @@ func _get_resource_type(path):
 func _handles_type(typename):
 	return typename == "SoundFontFileReader"
 
-func load(path, _original_path):
+func _load(path, _original_path, _use_sub_threads, _cache_mode):
 	var f = FileAccess.open(path, FileAccess.READ)
-
-	var err = f.get_error()
-	if err != OK:
-		return err
+	if f == null:
+		return ERR_FILE_CANT_OPEN
 
 	var res = SoundFontFileReader.new()
 	var data = f.get_buffer(f.get_length())
