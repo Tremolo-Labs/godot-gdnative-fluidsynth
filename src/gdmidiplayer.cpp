@@ -50,13 +50,14 @@ long long my_tell(void *handle) {
 }
 
 void GDMidiAudioStreamPlayer::_bind_methods() {
-	godot::ClassDB::bind_method(D_METHOD("_process", "void"), &GDMidiAudioStreamPlayer::_process);
-	godot::ClassDB::bind_method(D_METHOD("program_select", "void"), &GDMidiAudioStreamPlayer::program_select);
-	godot::ClassDB::bind_method(D_METHOD("note_on", "void"), &GDMidiAudioStreamPlayer::note_on);
-	godot::ClassDB::bind_method(D_METHOD("note_off", "void"), &GDMidiAudioStreamPlayer::note_off);
-	godot::ClassDB::bind_method(D_METHOD("pitch_bend", "void"), &GDMidiAudioStreamPlayer::pitch_bend);
-	ADD_PROPERTY(godot::PropertyInfo(Variant::STRING, "soundfont"), "set_soundfont", "get_soundfont");
-	ADD_PROPERTY(godot::PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
+	ClassDB::bind_method(D_METHOD("_process", "delta"), &GDMidiAudioStreamPlayer::_process);
+	ClassDB::bind_method(D_METHOD("fluidsynth_play"), &GDMidiAudioStreamPlayer::fluidsynth_play);
+	ClassDB::bind_method(D_METHOD("program_select", "channel", "bank_num", "preset_num"), &GDMidiAudioStreamPlayer::program_select);
+	ClassDB::bind_method(D_METHOD("note_on", "channel", "key", "velocity"), &GDMidiAudioStreamPlayer::note_on);
+	ClassDB::bind_method(D_METHOD("note_off", "channel", "key"), &GDMidiAudioStreamPlayer::note_off);
+	ClassDB::bind_method(D_METHOD("pitch_bend", "channel", "value"), &GDMidiAudioStreamPlayer::pitch_bend);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "soundfont"), "set_soundfont", "get_soundfont");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
 }
 
 GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() {
