@@ -1,13 +1,12 @@
-godot-gdnative-fluidsynth
-=========================
+godot-gdextension-fluidsynth
+============================
 
-Godot gdnative fluidsynth library to allow playing music using fluidsynth. Provides some primitives like ~AudioStreamMidiTrack~ and ~EventStreamMidiTrack~.
+Godot GDExtension fluidsynth library to allow playing music using fluidsynth.
 
 ## Contents
-* godot-cpp as a submodule (`godot-cpp/`)
-* GitHub Issues template (`.github/ISSUE_TEMPLATE.yml`)
-* GitHub CI/CD workflows to publish your library packages when creating a release (`.github/workflows/builds.yml`)
-* preconfigured source files for C++ development of the GDExtension (`src/`)
+* godot-cpp as a submodule (`godot-cpp/`) — version 10.x (targeting Godot 4.7)
+* GitHub CI/CD workflows to build and publish library packages (`.github/workflows/builds.yml`)
+* preconfigured C++ GDExtension source files (`src/`)
 * setup to automatically generate `.xml` files in a `doc_classes/` directory to be parsed by Godot as [GDExtension built-in documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_docs_system.html)
 
 
@@ -22,36 +21,16 @@ scons compiledb=yes
 scons compiledb=yes compile_commands.json
 ```
 
-## Usage - Actions
-
-This repository comes with a GitHub action that builds the GDExtension for cross-platform use. It triggers automatically for each pushed change. You can find and edit it in [builds.yml](.github/workflows/builds.yml).
-After a workflow run is complete, you can find the file `godot-cpp-template.zip` on the `Actions` tab on GitHub.
-
-## Old README
-
-
-How to Install
---------------
+## Building
 
 Install system dependencies for Ubuntu:
 
-    apt install fluidsynth libfluidsynth-dev abcmidi scons
-
-Build
------
+    sudo apt install fluidsynth libfluidsynth-dev scons
 
 Initialize git submodules:
 
     git submodule update --init --recursive
 
-Create assets:
+Build:
 
-    make assets
-
-Compile godot-cpp library:
-
-    make godot-cpp
-
-Compile gdnative library:
-
-    make
+    scons api_version=4.7
