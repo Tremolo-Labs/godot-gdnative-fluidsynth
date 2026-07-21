@@ -1,6 +1,6 @@
 [configuration]
 
-entry_symbol = "gdmidiplayer"
+entry_symbol = "gdmidiplayer_library_init"
 compatibility_minimum = "4.1"
 
 [libraries]
