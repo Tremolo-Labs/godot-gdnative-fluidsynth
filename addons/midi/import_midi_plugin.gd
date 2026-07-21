@@ -28,7 +28,7 @@ func _get_preset_name(_preset):
 func _get_import_options(_path, _preset):
 	return []
 
-func import(source_file, save_path, _options, _r_platform_variants, _r_gen_files):
+func _import(source_file, save_path, _options, _r_platform_variants, _r_gen_files):
 	var file = FileAccess.open(source_file, FileAccess.READ)
 	var err = file.get_error()
 	if err != OK:

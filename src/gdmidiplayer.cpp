@@ -63,7 +63,14 @@ void GDMidiAudioStreamPlayer::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
 }
 
-GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() {
+GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() :
+	buffer(nullptr),
+	fluidsynth_playing(false),
+	sfont_id(0),
+	settings(nullptr),
+	synth(nullptr),
+	player(nullptr),
+	adriver(nullptr) {
 	settings = new_fluid_settings();
 	fluid_settings_setstr(settings, "audio.driver", "pulseaudio");
 	synth = new_fluid_synth(settings);
@@ -79,10 +86,10 @@ GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() {
 }
 
 GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
-	delete buffer;
-	delete_fluid_player(player);
-	delete_fluid_synth(synth);
-	delete_fluid_settings(settings);
+	delete[] buffer;
+	if (player) delete_fluid_player(player);
+	if (synth) delete_fluid_synth(synth);
+	if (settings) delete_fluid_settings(settings);
 }
 
 void GDMidiAudioStreamPlayer::_init() {
