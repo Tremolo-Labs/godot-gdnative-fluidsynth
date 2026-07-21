@@ -1,0 +1,1472 @@
+* Godot Fluidsynth
+
+** DEFER README
+:PROPERTIES:
+:ID:       9143f0ac-4efc-4139-9114-705d9ce2a0c0
+:END:
+rename this subtree something more semantic like "Overview" and configure it to export to README.md. Convert the following markdown to Org format.
+#+begin_src markdown :tangle README.md
+godot-gdnative-fluidsynth
+=========================
+
+Godot gdnative fluidsynth library to allow playing music using fluidsynth. Provides some primitives like ~AudioStreamMidiTrack~ and ~EventStreamMidiTrack~.
+
+## Contents
+,* godot-cpp as a submodule (`godot-cpp/`)
+,* GitHub Issues template (`.github/ISSUE_TEMPLATE.yml`)
+,* GitHub CI/CD workflows to publish your library packages when creating a release (`.github/workflows/builds.yml`)
+,* preconfigured source files for C++ development of the GDExtension (`src/`)
+,* setup to automatically generate `.xml` files in a `doc_classes/` directory to be parsed by Godot as [GDExtension built-in documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_docs_system.html)
+
+
+### Configuring an IDE
+You can develop your own extension with any text editor and by invoking scons on the command line, but if you want to work with an IDE (Integrated Development Environment), you can use a compilation database file called `compile_commands.json`. Most IDEs should automatically identify this file, and self-configure appropriately.
+To generate the database file, you can run one of the following commands in the project root directory:
+```shell
+# Generate compile_commands.json while compiling
+scons compiledb=yes
+
+# Generate compile_commands.json without compiling
+scons compiledb=yes compile_commands.json
+```
+
+## Usage - Actions
+
+This repository comes with a GitHub action that builds the GDExtension for cross-platform use. It triggers automatically for each pushed change. You can find and edit it in [builds.yml](.github/workflows/builds.yml).
+After a workflow run is complete, you can find the file `godot-cpp-template.zip` on the `Actions` tab on GitHub.
+
+## Old README
+
+
+How to Install
+--------------
+
+Install system dependencies for Ubuntu:
+
+    apt install fluidsynth libfluidsynth-dev abcmidi scons
+
+Build
+-----
+
+Initialize git submodules:
+
+    git submodule update --init --recursive
+
+Create assets:
+
+    make assets
+
+Compile godot-cpp library:
+
+    make godot-cpp
+
+Compile gdnative library:
+
+    make
+#+end_src
+
+
+*** Project Overview
+
+Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
+- ~GDMidiAudioStreamPlayer~ - AudioStreamPlayer subclass for MIDI playback
+- ~MidiFileReader~ - Resource class for loading .mid files
+- ~SoundFontFileReader~ - Resource class for loading .sf2 soundfont files
+
+*** Build Commands
+
+**** Prerequisites (Ubuntu/Debian)
+#+begin_src shell :tangle no
+apt install fluidsynth libfluidsynth-dev scons
+#+end_src
+
+**** First-time setup
+#+begin_src shell :tangle no
+git submodule update --init --recursive
+#+end_src
+
+**** Build the extension
+#+begin_src shell :tangle no
+# Debug build (default)
+scons platform=linux
+
+# Release build
+scons target=template_release platform=linux
+
+# With compile_commands.json for IDE support
+scons compiledb=yes platform=linux
+#+end_src
+
+*** Architecture
+
+**** Source Files (src/)
+| File                     | Purpose                                               |
+|--------------------------+-------------------------------------------------------|
+| register_types.cpp       | GDExtension entry point, registers all classes        |
+| gdmidiplayer.cpp/h       | Main GDMidiAudioStreamPlayer class wrapping FluidSynth|
+| midi_file_reader.cpp/h   | Resource loader for MIDI files                        |
+| soundfont_file_reader.cpp/h | Resource loader for SoundFont files               |
+
+**** Key Integration Pattern
+
+FluidSynth expects file paths, but Godot resources are in-memory. The extension uses a custom sfloader with memory callbacks (~my_open~, ~my_read~, ~my_seek~, ~my_tell~, ~my_close~) that interpret a pointer address encoded as a string (~"&%p"~) to load soundfonts from Godot's resource system.
+
+**** Build Output
+- ~bin/<platform>/~ - Raw build output
+- ~gdmidiplayer/bin/<platform>/~ - Copied for Godot project use
+
+*** Platform Support
+
+| Platform | Method    | Status    |
+|----------+-----------+-----------|
+| Linux    | pkg-config| Supported |
+| Windows  | vcpkg     | Supported |
+| macOS    | vcpkg     | Supported |
+| Android  | NDK       | Manual    |
+| iOS      | Xcode     | Manual    |
+| Web      | Emscripten| Manual    |
+** Godot 4.5 Migration Summary
+
+*** Overview
+Migration of godot-gdnative-fluidsynth from Godot 3 (GDNative) to Godot 4.5 (GDExtension).
+
+*** Commits on godot-4.5 branch (14 total)
+
+**** Phase 1: Initial Setup
+- ba31511 :: checkout godot-cpp/tags/godot-4.5-stable
+- bd1dae4 :: update build instructions (added fluidsynth/scons deps for Ubuntu)
+- 0c11181 :: convert project to v4 with godot's migration tool
+- 3431b9c :: update godot-cpp to 4.5-stable (.gitmodules)
+- 1f86e70 :: update .gitignore
+
+**** Phase 2: GDExtension Template Integration
+- 1177227 :: example register_types (new register_types.cpp/h)
+- 520202c :: most of the example files from the gdextension template repo
+  - Added .clang-format, .editorconfig, CMakeLists.txt
+  - Added GitHub workflows for CI/CD
+  - Added extension_api.json
+  - Added godot-midi/ demo project structure
+
+**** Phase 3: Code Migration
+- a02ad90 :: update godot-cpp submodule version to 4.5-stable
+- 7df3307 :: it builds; there is finish work left
+  - Removed src/gdlibrary.cpp (GDNative entry point - obsolete)
+  - Updated SConstruct build system
+  - Modified all source files for GDExtension API:
+    - gdmidiplayer.cpp/h
+    - midi_file_reader.cpp/h
+    - soundfont_file_reader.cpp/h
+    - register_types.cpp/h
+
+**** Phase 4: Polish & Fixes
+- 74c02fa :: README contains info that should be issues etc
+- 02ce372 :: edits to gdscript to get it to open in Godot Editor locally
+  - Updated addon scripts for Godot 4 API
+  - Added .uid files for resources
+  - Fixed icon.svg.import
+- 0458e00 :: fix some translation errors in .clang-format
+- 7fb4107 :: format cpp files with new rules
+- da9da75 :: use AudioServer mix_rate in gdmidiplayer::init()
+- d75bcda :: checkout godot-cpp to godot-4.5 branch
+
+*** Key API Changes (GDNative → GDExtension)
+
+**** Class Registration
+- Old: ~godot_nativescript_init()~ with manual bindings
+- New: ~GDREGISTER_CLASS()~ in ~register_types.cpp~
+
+**** Header Includes
+- Old: ~#include <Godot.hpp>~, ~#include <Reference.hpp>~
+- New: ~#include <godot_cpp/...>~ namespaced headers
+
+**** Class Inheritance
+- Old: ~class GDMidiPlayer : public AudioStreamPlayer~
+- New: Uses ~GDCLASS()~ macro, ~ClassDB::bind_method()~
+
+**** Entry Point
+- Old: ~gdlibrary.cpp~ with ~godot_gdnative_init~
+- New: ~register_types.cpp~ with GDExtension initialization
+
+*** Files Changed Summary
+
+| Category         | Files Modified/Added                                      |
+|------------------+-----------------------------------------------------------|
+| Build System     | SConstruct, CMakeLists.txt                                |
+| Source Code      | gdmidiplayer.cpp/h, midi_file_reader.cpp/h                |
+|                  | soundfont_file_reader.cpp/h, register_types.cpp/h         |
+| Removed          | gdlibrary.cpp (obsolete GDNative entry)                   |
+| GDScript Addons  | addons/midi/*.gd (API updates, added .uid files)          |
+| Project Config   | project.godot, *.gdextension                              |
+| Tooling          | .clang-format, .editorconfig, .github/workflows/builds.yml|
+
+*** TODO Current Status
+:PROPERTIES:
+:ID:       4e3a4851-6625-4df5-8559-7d711aed5379
+:END:
+- [X] Project converts with Godot migration tool
+- [X] godot-cpp submodule updated to 4.5-stable
+- [X] Build system updated (SConstruct)
+- [X] Source files compile with GDExtension API
+- [X] GDScript addons updated for Godot 4
+- [X] AudioServer mix_rate used in initialization
+
+
+**** DONE CI/CD workflow verification
+:PROPERTIES:
+:ID:       28ba97c0-742d-43fe-8e5e-4b2521f4d93c
+:END:
+
+Completed 2025-01-25. All actionable build issues have been resolved:
+- 32-bit Linux: Disabled (deprecated platform)
+- 64-bit Windows: Fixed (switched to MSVC)
+- 32-bit Windows: Fixed (C++ code compliance + MSVC)
+- macOS universal: Fixed (C++ code compliance)
+
+Remaining deferred items require significant effort (Android, iOS, WebAssembly,
+double-precision) and are documented below for future reference.
+
+***** DEFER double-precision builds
+:PROPERTIES:
+:ID:       7524133b-7461-452f-80f5-72a0b0a17891
+:END:
+#+begin_example
+scons: *** [godot-cpp/gen/include/godot_cpp/core/ext_wrappers.gen.inc] Exception : Cannot do a precision=double build using 'godot-cpp/gdextension/extension_api.json' which was generated by Godot built with precision=single
+#+end_example
+
+This is an upstream problem. The ~extension_api.json~ bundled with godot-cpp
+was generated by a single-precision Godot build. Double-precision builds
+require a matching double-precision API file.
+
+See: https://github.com/godotengine/godot-cpp/issues/1729
+
+****** Workaround
+
+The workflow matrix now specifies ~float-precision: [single]~ only.
+Double-precision support is blocked on upstream providing a double-precision
+~extension_api.json~, or us generating one from a double-precision Godot build.
+
+***** DONE missing include
+:PROPERTIES:
+:ID:       13f927ab-3fac-4517-9439-b5dcccf9fd2a
+:END:
+#+begin_example
+In file included from src/gdmidiplayer.cpp:1:
+src/gdmidiplayer.h:12:10: fatal error: fluidsynth.h: No such file or directory
+   12 | #include <fluidsynth.h>
+      |          ^~~~~~~~~~~~~~`
+#+end_example
+
+****** Analysis
+
+Fluidsynth is not a header-only library. It requires:
+1. Headers (~fluidsynth.h~) for compilation
+2. Shared library (~libfluidsynth.so~) for linking
+3. Runtime library on target system (unless statically linked)
+
+****** Solution: Cross-platform CI with vcpkg
+
+Desktop platforms (Linux, Windows, macOS) use package managers:
+- Linux: ~apt install libfluidsynth-dev~
+- Windows/macOS: ~vcpkg install fluidsynth~
+
+Mobile and web platforms require building fluidsynth from source (deferred).
+
+******* Fluidsynth Package Availability
+
+| Platform       | Method                      | Status      | Notes                                    |
+|----------------+-----------------------------+-------------+------------------------------------------|
+| Linux          | apt                         | Supported   | ~libfluidsynth-dev~                      |
+| Windows        | [[https://vcpkg.io/en/package/fluidsynth][vcpkg]]                       | Supported   | x86, x64, ARM; excludes UWP/Xbox         |
+| macOS          | vcpkg, Homebrew             | Supported   | Universal builds possible                |
+| Android        | CMake cross-compile         | Manual      | [[https://medium.com/swlh/creating-a-fluidsynth-hello-world-app-for-android-5e112454a8eb][Guide available]]                          |
+| iOS            | CMake cross-compile         | Manual      | No official package                      |
+| WebAssembly    | [[https://github.com/jet2jet/fluidsynth-emscripten][fluidsynth-emscripten]] fork  | Manual      | Requires Emscripten patches              |
+
+******* Workflow Changes
+
+#+transclude: [[file:SConstruct::Build Configuration]]  :src python :rest ":tangle SConstruct"
+
+****** DEFER Android builds
+:PROPERTIES:
+:ID:       b2c3d4e5-6789-01bc-def0-234567890abc
+:END:
+
+Android requires cross-compiling fluidsynth with the Android NDK.
+
+******* Prerequisites
+
+- Android NDK (r21 or later recommended)
+- CMake 3.13+
+- Fluidsynth source code
+
+******* Build Steps
+
+1. Set up NDK toolchain:
+   #+begin_src shell :tangle no
+   export ANDROID_NDK=/path/to/android-ndk
+   export TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
+   #+end_src
+
+2. Build fluidsynth for each ABI (arm64-v8a, armeabi-v7a, x86, x86_64):
+   #+begin_src shell :tangle no
+   # Example for arm64-v8a
+   mkdir build-android-arm64 && cd build-android-arm64
+   cmake .. \
+     -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+     -DANDROID_ABI=arm64-v8a \
+     -DANDROID_PLATFORM=android-21 \
+     -DBUILD_SHARED_LIBS=OFF \
+     -Denable-floats=ON \
+     -Denable-threads=ON \
+     -Denable-openmp=OFF \
+     -Denable-alsa=OFF \
+     -Denable-jack=OFF \
+     -Denable-pulseaudio=OFF \
+     -Denable-pipewire=OFF \
+     -Denable-oss=OFF \
+     -Denable-readline=OFF
+   cmake --build .
+   #+end_src
+
+3. Copy static library and headers to a known location for SConstruct.
+
+******* Reference
+
+- [[https://medium.com/swlh/creating-a-fluidsynth-hello-world-app-for-android-5e112454a8eb][Creating a Fluidsynth Hello World App for Android]]
+- [[https://github.com/FluidSynth/fluidsynth/wiki/BuildingWithCMake][FluidSynth BuildingWithCMake wiki]]
+
+****** DEFER iOS builds
+:PROPERTIES:
+:ID:       c3d4e5f6-7890-12cd-ef01-345678901bcd
+:END:
+
+iOS requires cross-compiling fluidsynth with Xcode toolchain.
+
+******* Prerequisites
+
+- Xcode with command line tools
+- CMake 3.13+
+- Fluidsynth source code
+
+******* Build Steps
+
+1. Build for arm64 (device) and x86_64 (simulator):
+   #+begin_src shell :tangle no
+   # Device build (arm64)
+   mkdir build-ios-arm64 && cd build-ios-arm64
+   cmake .. \
+     -G Xcode \
+     -DCMAKE_SYSTEM_NAME=iOS \
+     -DCMAKE_OSX_ARCHITECTURES=arm64 \
+     -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+     -DBUILD_SHARED_LIBS=OFF \
+     -Denable-floats=ON \
+     -Denable-threads=ON \
+     -Denable-coreaudio=OFF \
+     -Denable-coremidi=OFF \
+     -Denable-framework=OFF
+   cmake --build . --config Release
+
+   # Simulator build (x86_64 for Intel Macs, arm64 for Apple Silicon)
+   mkdir build-ios-sim && cd build-ios-sim
+   cmake .. \
+     -G Xcode \
+     -DCMAKE_SYSTEM_NAME=iOS \
+     -DCMAKE_OSX_SYSROOT=iphonesimulator \
+     -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+     -DBUILD_SHARED_LIBS=OFF \
+     # ... same options as above
+   cmake --build . --config Release
+   #+end_src
+
+2. Create xcframework (optional, for easier integration):
+   #+begin_src shell :tangle no
+   xcodebuild -create-xcframework \
+     -library build-ios-arm64/src/Release/libfluidsynth.a \
+     -library build-ios-sim/src/Release/libfluidsynth.a \
+     -output fluidsynth.xcframework
+   #+end_src
+
+******* Notes
+
+- iOS apps cannot use audio drivers; only synthesizer output is usable
+- Consider Core Audio integration for actual audio playback in Godot
+
+****** DEFER WebAssembly builds
+:PROPERTIES:
+:ID:       d4e5f6a7-8901-23de-f012-456789012cde
+:END:
+
+WebAssembly requires [[https://github.com/jet2jet/fluidsynth-emscripten][fluidsynth-emscripten]], a fork with Emscripten-specific patches.
+
+******* Prerequisites
+
+- Emscripten SDK (tested with 3.1.10+)
+- CMake 3.13+
+- fluidsynth-emscripten source (NOT upstream fluidsynth)
+
+******* Build Steps
+
+1. Set up Emscripten:
+   #+begin_src shell :tangle no
+   source /path/to/emsdk/emsdk_env.sh
+   #+end_src
+
+2. Clone the fork:
+   #+begin_src shell :tangle no
+   git clone https://github.com/jet2jet/fluidsynth-emscripten.git
+   cd fluidsynth-emscripten
+   #+end_src
+
+3. Build with emcmake:
+   #+begin_src shell :tangle no
+   mkdir build && cd build
+   emcmake cmake .. \
+     -DCMAKE_BUILD_TYPE=Release \
+     -Denable-oss=OFF \
+     -Denable-alsa=OFF \
+     -Denable-jack=OFF \
+     -Denable-pulseaudio=OFF \
+     -Denable-pipewire=OFF \
+     -Denable-threads=OFF
+   cmake --build .
+   #+end_src
+
+4. Output files:
+   - ~build/src/libfluidsynth-<version>.js~ - JavaScript glue
+   - ~build/src/libfluidsynth-<version>.wasm~ - WebAssembly binary
+
+******* Integration Notes
+
+- The Emscripten build outputs a JS+WASM pair, not a static library
+- For GDExtension web builds, fluidsynth would need to be compiled into
+  the extension itself, requiring significant SConstruct changes
+- Consider using [[https://www.npmjs.com/package/@nicebyte/js-synthesizer][js-synthesizer]] as a higher-level wrapper
+
+******* Limitations
+
+- Not all FluidSynth APIs work in browser context
+- Audio output requires Web Audio API integration
+- Threading support is limited (SharedArrayBuffer restrictions)
+
+******* Reference
+
+- [[https://github.com/jet2jet/fluidsynth-emscripten][jet2jet/fluidsynth-emscripten]] - maintained fork
+- [[https://www.npmjs.com/package/@nicebyte/js-synthesizer][js-synthesizer]] - high-level wrapper for browser use
+
+***** DONE 32-bit builds on linux
+:PROPERTIES:
+:ID:       de1ec078-7446-470a-8d0e-30f76858524d
+:END:
+
+****** Resolution (2025-01-25)
+
+Disabled 32-bit Linux builds in ~.github/workflows/builds.yml~ by commenting out
+the ~x86_32~ target from the matrix. Rationale:
+- Godot 4.x has deprecated 32-bit Linux support
+- ~libfluidsynth-dev:i386~ not readily available on GitHub runners
+- Minimal user demand for 32-bit Linux builds
+
+#+begin_src yaml :tangle no
+# In builds.yml matrix:
+# { platform: linux, arch: x86_32, os: ubuntu-22.04 },  # Disabled
+#+end_src
+they're failing like this on the =Build GDExtension (Linux)= task:
+#+begin_example
+053
+Linking Static Library godot-cpp/bin/libgodot-cpp.linux.template_debug.x86_32.a ...
+Ranlib Library godot-cpp/bin/libgodot-cpp.linux.template_debug.x86_32.a ...
+Linking Shared Library bin/linux/libgdmidiplayer.linux.template_debug.x86_32.so ...
+/usr/bin/ld: skipping incompatible /usr/lib/x86_64-linux-gnu/libfluidsynth.so when searching for -lfluidsynth
+/usr/bin/ld: cannot find -lfluidsynth: No such file or directory
+/usr/bin/ld: skipping incompatible /usr/lib/x86_64-linux-gnu/libfluidsynth.so when searching for -lfluidsynth
+collect2: error: ld returned 1 exit status
+scons: *** [bin/linux/libgdmidiplayer.linux.template_debug.x86_32.so] Error 1
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+****** Root Cause Analysis
+
+The linker finds the 64-bit ~libfluidsynth.so~ but skips it because it's
+incompatible with the 32-bit target. The workflow installs ~gcc-multilib~ and
+~g++-multilib~ for cross-compilation toolchains, but does not install the 32-bit
+fluidsynth library (~libfluidsynth-dev:i386~).
+
+Ubuntu uses multiarch: 32-bit libraries install to ~/usr/lib/i386-linux-gnu/~
+while 64-bit goes to ~/usr/lib/x86_64-linux-gnu/~. The ~pkg-config~ call in
+SConstruct returns 64-bit paths regardless of target architecture.
+
+****** Solution Options
+
+******* Option A: Install 32-bit fluidsynth via multiarch (Recommended)
+
+Pros:
+- Native package manager integration
+- Automatic dependency resolution
+- Matches the 64-bit approach
+
+Cons:
+- Requires enabling i386 architecture on GitHub runners
+- May have dependency conflicts with 64-bit packages
+- Ubuntu 22.04 runners may not have ~libfluidsynth-dev:i386~ readily available
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Linux - Install 32-bit fluidsynth
+  if: ${{ matrix.target.platform == 'linux' && matrix.target.arch == 'x86_32' }}
+  run: |
+    sudo dpkg --add-architecture i386
+    sudo apt-get update
+    sudo apt-get install -y libfluidsynth-dev:i386 pkg-config:i386
+#+end_src
+
+SConstruct would need modification to use ~pkg-config~ with ~PKG_CONFIG_PATH~
+pointing to 32-bit libraries:
+#+begin_src python :tangle no
+if platform == "linux" and arch == "x86_32":
+    env["ENV"]["PKG_CONFIG_PATH"] = "/usr/lib/i386-linux-gnu/pkgconfig"
+#+end_src
+
+******* Option B: Cross-compile fluidsynth from source
+
+Pros:
+- Full control over build configuration
+- Works even if 32-bit packages unavailable
+- Can optimize for specific use case
+
+Cons:
+- Significantly increases CI build time
+- Must also cross-compile fluidsynth's dependencies (glib, etc.)
+- Complex CMake cross-compilation setup
+- Maintenance burden
+
+Implementation would require a separate job to build fluidsynth:
+#+begin_src yaml :tangle no
+- name: Build fluidsynth for i386
+  run: |
+    git clone --depth 1 https://github.com/FluidSynth/fluidsynth.git
+    cd fluidsynth
+    mkdir build && cd build
+    cmake .. \
+      -DCMAKE_C_FLAGS="-m32" \
+      -DCMAKE_CXX_FLAGS="-m32" \
+      -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/fluidsynth-i386 \
+      -DBUILD_SHARED_LIBS=OFF \
+      -Denable-readline=OFF \
+      -Denable-dbus=OFF
+    make -j$(nproc)
+    make install
+#+end_src
+
+******* Option C: Skip 32-bit Linux builds (Pragmatic)
+
+Pros:
+- Zero additional complexity
+- 32-bit Linux usage is extremely rare in 2025+
+- Godot itself barely supports 32-bit Linux (deprecated)
+- Allows focus on platforms users actually need
+
+Cons:
+- Incomplete platform coverage
+- May disappoint edge-case users
+
+Implementation: Remove ~x86_32~ from Linux targets in workflow matrix:
+#+begin_src yaml :tangle no
+target:
+  [
+    { platform: linux, arch: x86_64, os: ubuntu-22.04 },
+    # { platform: linux, arch: x86_32, os: ubuntu-22.04 },  # Removed
+    { platform: linux, arch: arm64, os: ubuntu-22.04-arm },
+    { platform: linux, arch: arm32, os: ubuntu-22.04-arm },
+    # ...
+  ]
+#+end_src
+
+******* Option D: Use Docker container with 32-bit environment
+
+Pros:
+- Completely isolated 32-bit environment
+- No multiarch conflicts
+- Reproducible builds
+
+Cons:
+- Adds Docker complexity to workflow
+- Slower than native builds
+- Requires maintaining a container image
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Build 32-bit Linux in container
+  if: ${{ matrix.target.arch == 'x86_32' }}
+  uses: docker://i386/ubuntu:22.04
+  with:
+    args: |
+      apt-get update && apt-get install -y libfluidsynth-dev scons
+      scons platform=linux arch=x86_32
+#+end_src
+
+****** Recommendation
+
+**Option C (Skip 32-bit Linux)** is the most pragmatic choice:
+- Godot 4.x has effectively deprecated 32-bit Linux support
+- The effort to maintain 32-bit builds exceeds their utility
+- Users requiring 32-bit can build from source locally
+
+If 32-bit support is required, **Option A** is the cleanest approach, but
+requires testing whether ~libfluidsynth-dev:i386~ is available and whether
+pkg-config correctly resolves 32-bit paths.
+
+***** DONE 64-bit Windows builds
+:PROPERTIES:
+:ID:       d6cfccd2-1fc8-4f03-b253-672c8bbb6aeb
+:END:
+
+****** Resolution (2025-01-25)
+
+Switched from MinGW to MSVC toolchain. Changes to ~.github/workflows/builds.yml~:
+
+1. Replaced ~setup-godot-cpp~ action with manual Python/scons setup for Windows
+2. Added ~use_mingw=no~ flag to scons build command
+3. Changed shell from ~sh~ to ~pwsh~ for Windows builds
+
+This eliminates the Chocolatey dependency entirely. MSVC is pre-installed on
+~windows-latest~ runners.
+in =Setup godot-cpp=:
+#+begin_example
+33
+Downloading package from source 'https://community.chocolatey.org/api/v2/'
+[NuGet] Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+[NuGet] Response status code does not indicate success: 504 (Gateway Time-out).
+[NuGet] Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+[NuGet] Response status code does not indicate success: 504 (Gateway Time-out).
+mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+mingw package files upgrade failed with exit code 1. Performing other installation steps.
+The upgrade of mingw was NOT successful.
+mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+
+Chocolatey upgraded 0/1 packages. 1 packages failed.
+ See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).
+
+Failures
+ - mingw (exited 1) - mingw not installed. An error occurred during installation:
+ Error downloading 'mingw.12.2.0' from 'https://community.chocolatey.org/api/v2/package/mingw/12.2.0'.
+
+Did you know the proceeds of Pro (and some proceeds from other
+ licensed editions) go into bettering the community infrastructure?
+ Your support ensures an active community, keeps Chocolatey tip-top,
+ plus it nets you some awesome features!
+ https://chocolatey.org/compare
+Remove-Item: D:\a\_temp\a1a525d3-d1cd-4e8d-9bdc-8b0d5ba16709.ps1:140
+Line |
+ 140 |          Remove-Item (Join-Path $mingw_lib 'libpthread.dll.a')
+     |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot find path
+     | 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\x86_64-w64-mingw32\lib\libpthread.dll.a' because it
+     | does not exist.
+Error: Process completed with exit code 1.
+
+#+end_example
+
+****** Root Cause Analysis
+
+The failure occurs in ~godot-cpp/.github/actions/setup-godot-cpp~, which uses
+Chocolatey to install MinGW. The Chocolatey community repository is experiencing
+a 504 Gateway Timeout, which is a transient infrastructure issue.
+
+The secondary error (~Remove-Item~ failing) is a cascade failure: the script
+assumes MinGW installed successfully and tries to patch it.
+
+This is an *upstream dependency issue* in godot-cpp's setup action, not a
+problem with this project's workflow configuration.
+
+****** Solution Options
+
+******* Option A: Use MSVC instead of MinGW (Recommended)
+
+Pros:
+- MSVC is pre-installed on ~windows-latest~ runners (no download needed)
+- No dependency on external package repositories
+- Better Windows ABI compatibility
+- Native Microsoft toolchain
+
+Cons:
+- Requires fixing C++ code to be MSVC-compatible (see 32-bit Windows TODO)
+- Different compiler warnings/errors to address
+- May need to adjust SConstruct for MSVC flags
+
+Implementation: Override the godot-cpp setup to use MSVC:
+#+begin_src yaml :tangle no
+- name: Setup godot-cpp (MSVC)
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    # Skip MinGW setup, MSVC is pre-installed
+    # Use Visual Studio Developer Command Prompt
+    call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+#+end_src
+
+godot-cpp supports MSVC via the ~use_mingw=no~ flag (default on Windows).
+
+******* Option B: Use pre-installed MinGW on GitHub runners
+
+GitHub's ~windows-latest~ runners include MinGW-w64 at:
+~C:\Program Files\mingw64~ (GCC 12.2.0 as of 2024)
+
+Pros:
+- No download required
+- Already available on runner
+- Maintains MinGW compatibility
+
+Cons:
+- Requires forking or overriding godot-cpp's setup action
+- Runner's MinGW version may differ from Chocolatey's
+- Still subject to MinGW-specific code issues
+
+Implementation: Set ~PATH~ before running setup:
+#+begin_src yaml :tangle no
+- name: Use pre-installed MinGW
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    echo "C:\Program Files\mingw64\bin" >> $env:GITHUB_PATH
+  shell: pwsh
+#+end_src
+
+******* Option C: Cache MinGW installation
+
+Pros:
+- Avoids repeated downloads
+- Resilient to Chocolatey outages after first successful run
+
+Cons:
+- First build still requires Chocolatey access
+- Cache invalidation complexity
+- Doesn't solve the immediate problem
+
+Implementation:
+#+begin_src yaml :tangle no
+- name: Cache MinGW
+  uses: actions/cache@v4
+  with:
+    path: C:\ProgramData\chocolatey\lib\mingw
+    key: mingw-12.2.0-${{ runner.os }}
+#+end_src
+
+******* Option D: Download MinGW from alternative source
+
+Pros:
+- Bypasses Chocolatey entirely
+- Can pin exact version
+- More reliable than community package managers
+
+Cons:
+- Manual version management
+- Need to handle extraction and PATH setup
+- Security considerations for third-party downloads
+
+Implementation: Download from [[https://github.com/niXman/mingw-builds-binaries/releases][niXman's MinGW builds]]:
+#+begin_src yaml :tangle no
+- name: Install MinGW manually
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: |
+    Invoke-WebRequest -Uri "https://github.com/niXman/mingw-builds-binaries/releases/download/12.2.0-rt_v10-rev2/x86_64-12.2.0-release-posix-seh-ucrt-rt_v10-rev2.7z" -OutFile mingw.7z
+    7z x mingw.7z -oC:\
+    echo "C:\mingw64\bin" >> $env:GITHUB_PATH
+  shell: pwsh
+#+end_src
+
+******* Option E: Wait and retry (Temporary workaround)
+
+Chocolatey outages are usually temporary. Re-running the workflow may succeed.
+
+Pros:
+- No code changes needed
+- May work if it's truly transient
+
+Cons:
+- Not a real solution
+- Unreliable CI
+- Poor developer experience
+
+****** Recommendation
+
+**Option A (Use MSVC)** is the best long-term solution:
+- Eliminates external package manager dependency
+- MSVC is the native Windows compiler with best compatibility
+- Pre-installed on all Windows runners
+
+However, this requires first fixing the C++ compilation errors documented in the
+32-bit Windows and macOS TODOs (void pointer arithmetic, VLAs). Those code fixes
+are prerequisites for MSVC builds.
+
+**Short-term**: **Option B** (use pre-installed MinGW) can unblock builds while
+code fixes are developed:
+#+begin_src yaml :tangle no
+- name: Setup godot-cpp
+  uses: ./godot-cpp/.github/actions/setup-godot-cpp
+  with:
+    platform: ${{ matrix.target.platform }}
+  env:
+    # Skip Chocolatey, use pre-installed MinGW
+    PATH: "C:\\Program Files\\mingw64\\bin;${{ env.PATH }}"
+#+end_src
+
+***** DONE 32-bit Windows builds
+:PROPERTIES:
+:ID:       e82d8281-e21a-4e20-ad82-ffbc5b63d6b1
+:END:
+
+****** Resolution (2025-01-25)
+
+Fixed C++ standards compliance issues in ~src/gdmidiplayer.cpp~:
+
+1. *void* arithmetic* (line 18): Cast to ~char*~ before pointer arithmetic
+2. *sprintf deprecation*: Replaced with ~snprintf~ with explicit buffer size
+3. *VLA removal*: Replaced variable-length array with direct ~PackedByteArray::ptr()~ access
+
+Combined with MSVC switch (see 64-bit Windows resolution), 32-bit Windows builds
+should now succeed.
+in =Build GDExtension (Windows/macOS)=:
+
+=template_release=:
+#+begin_example
+Compiling godot-cpp\gen\src\classes\mesh_instance3d.cpp ...
+Error: src\gdmidiplayer.cpp(18): error C2036: 'void *': unknown size
+Error: src\gdmidiplayer.cpp(159): error C2131: expression did not evaluate to a constant
+src\gdmidiplayer.cpp(159): note: failure was caused by call of undefined function or one not declared 'constexpr'
+src\gdmidiplayer.cpp(159): note: see usage of 'godot::PackedByteArray::size'
+Error: src\gdmidiplayer.cpp(162): error C3863: array type 'char ['function']' is not assignable
+scons: *** [src\gdmidiplayer.windows.template_debug.x86_32.obj] Error 2
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+=template_debug=:
+#+begin_example
+Compiling godot-cpp\gen\src\classes\parallax2d.cpp ...
+Error: src\gdmidiplayer.cpp(18): error C2036: 'void *': unknown size
+Error: src\gdmidiplayer.cpp(159): error C2131: expression did not evaluate to a constant
+src\gdmidiplayer.cpp(159): note: failure was caused by call of undefined function or one not declared 'constexpr'
+src\gdmidiplayer.cpp(159): note: see usage of 'godot::PackedByteArray::size'
+Error: src\gdmidiplayer.cpp(162): error C3863: array type 'char ['function']' is not assignable
+scons: *** [src\gdmidiplayer.windows.template_release.x86_32.obj] Error 2
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+****** Root Cause Analysis
+
+These are C++ standards compliance errors. The code uses GCC/Clang extensions
+that MSVC (and strict C++ mode) rejects:
+
+******* Error 1: ~void *~ arithmetic (line 18)
+
+#+begin_src cpp :tangle no
+memcpy(buf, (handle + position), count);  // handle is void*
+#+end_src
+
+In standard C++, ~void*~ has no size, so pointer arithmetic is undefined.
+GCC/Clang allow this as an extension (treating ~void*~ like ~char*~), but
+MSVC strictly follows the standard and rejects it.
+
+******* Error 2: Variable-Length Array (line 159)
+
+#+begin_src cpp :tangle no
+char midi_file[byte_array.size()];  // VLA - not allowed in C++
+#+end_src
+
+Variable-Length Arrays (VLAs) are a C99 feature. They're not part of any C++
+standard. GCC/Clang support them as an extension, but MSVC does not.
+
+******* Error 3: Array assignment (line 162)
+
+#+begin_src cpp :tangle no
+midi_file[i] = byte_array[i];  // This error is a cascade from the VLA issue
+#+end_src
+
+This error occurs because MSVC interprets ~midi_file~ as a function-like entity
+due to the failed VLA parse, not because the assignment itself is invalid.
+
+****** Solution Options
+
+******* Option A: Fix code for C++ standards compliance (Recommended)
+
+This is the correct long-term solution. All three issues have straightforward fixes:
+
+*Fix for void* arithmetic* (line 18):
+#+begin_src cpp :tangle no
+// Before:
+memcpy(buf, (handle + position), count);
+
+// After - cast to char* for byte-level arithmetic:
+memcpy(buf, (static_cast<char*>(handle) + position), count);
+
+// Or use uint8_t* for clarity:
+memcpy(buf, (static_cast<uint8_t*>(handle) + position), count);
+#+end_src
+
+*Fix for VLA* (lines 159-163):
+#+begin_src cpp :tangle no
+// Before:
+char midi_file[byte_array.size()];
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file, byte_array.size());
+
+// After - Option 1: Use std::vector (heap allocation):
+std::vector<char> midi_file(byte_array.size());
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file.data(), byte_array.size());
+
+// After - Option 2: Direct pointer access (zero-copy, if PackedByteArray allows):
+const uint8_t* midi_data = byte_array.ptr();
+fluid_player_add_mem(player, midi_data, byte_array.size());
+
+// After - Option 3: Use unique_ptr for explicit heap allocation:
+auto midi_file = std::make_unique<char[]>(byte_array.size());
+for (int i = 0; i < byte_array.size(); i++) {
+    midi_file[i] = byte_array[i];
+}
+fluid_player_add_mem(player, midi_file.get(), byte_array.size());
+#+end_src
+
+Pros:
+- Code works on all compilers (GCC, Clang, MSVC)
+- Standards-compliant
+- No runtime overhead with Option 2 (zero-copy)
+
+Cons:
+- Requires code changes
+- Need to verify ~PackedByteArray::ptr()~ returns suitable pointer
+
+******* Option B: Force GCC extensions in MSVC
+
+MSVC has some GCC compatibility, but VLAs are not supported even with
+compatibility flags. This option is not viable for the VLA issue.
+
+******* Option C: Use MinGW instead of MSVC on Windows
+
+Pros:
+- MinGW uses GCC, which accepts the current code
+- No code changes needed
+
+Cons:
+- Subject to MinGW availability issues (see 64-bit Windows TODO)
+- Masks underlying code quality issues
+- GCC extensions are non-portable
+
+******* Option D: Skip 32-bit Windows builds
+
+Similar to the 32-bit Linux discussion, 32-bit Windows is increasingly rare.
+
+Pros:
+- No immediate work required
+- 32-bit Windows is declining
+
+Cons:
+- Some users may still need 32-bit builds
+- Doesn't fix the underlying code issues (which affect macOS too)
+
+****** Recommendation
+
+**Option A (Fix code for standards compliance)** is strongly recommended:
+
+1. The fixes are straightforward and well-understood
+2. The same fixes resolve macOS universal build errors
+3. Results in more portable, maintainable code
+4. Enables MSVC builds, removing MinGW/Chocolatey dependency
+
+Suggested patch for ~src/gdmidiplayer.cpp~:
+#+begin_src cpp :tangle no
+// Line 18 - fix void* arithmetic:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, static_cast<char*>(handle) + position, count);
+    position = position + count;
+    return FLUID_OK;
+}
+
+// Lines 156-166 - fix VLA with direct pointer access:
+void GDMidiAudioStreamPlayer::fluidsynth_play() {
+    if (ResourceLoader::get_singleton()->exists(midi_file)) {
+        Variant resource = ResourceLoader::get_singleton()->load(midi_file);
+        Ref<MidiFileReader> midi = resource;
+        PackedByteArray byte_array = midi->get_data();
+
+        if (byte_array.size() > 0) {
+            // Use PackedByteArray's internal pointer directly
+            fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+        }
+
+        fluid_player_play(player);
+        fluidsynth_playing = true;
+    }
+}
+#+end_src
+
+**Note**: Verify that ~fluid_player_add_mem~ does not store the pointer beyond
+the function call. If it does, the ~std::vector~ approach is safer as it
+ensures the data remains valid.
+
+***** DONE macOS universal builds
+:PROPERTIES:
+:ID:       25a0ac3a-542e-423f-8bc1-0658e5132e12
+:END:
+
+****** Resolution (2025-01-25)
+
+Fixed by the same C++ code changes as Windows (see 32-bit Windows resolution):
+- ~void*~ arithmetic fix eliminates Clang error
+- ~snprintf~ replacement eliminates deprecation warning
+- VLA removal eliminates Clang extension warning
+#+begin_example
+040
+Compiling godot-cpp/gen/src/classes/animation_node_output.cpp ...
+Error: src/gdmidiplayer.cpp:18:22: error: arithmetic on a pointer to void
+   18 |         memcpy(buf, (handle + position), count);
+      |                      ~~~~~~ ^
+Warning: src/gdmidiplayer.cpp:133:3: warning: 'sprintf' is deprecated: This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead. [-Wdeprecated-declarations]
+  133 |                 sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+      |                 ^
+/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_stdio.h:278:1: note: 'sprintf' has been explicitly marked deprecated here
+  278 | __deprecated_msg("This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead.")
+      | ^
+/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h:218:48: note: expanded from macro '__deprecated_msg'
+  218 |         #define __deprecated_msg(_msg) __attribute__((__deprecated__(_msg)))
+      |                                                       ^
+Warning: src/gdmidiplayer.cpp:159:19: warning: variable length arrays in C++ are a Clang extension [-Wvla-cxx-extension]
+  159 |                         char midi_file[byte_array.size()];
+      |                                        ^~~~~~~~~~~~~~~~~
+src/gdmidiplayer.cpp:159:30: note: non-constexpr function 'size' cannot be used in a constant expression
+  159 |                         char midi_file[byte_array.size()];
+      |                                                   ^
+godot-cpp/gen/include/godot_cpp/variant/packed_byte_array.hpp:165:10: note: declared here
+  165 |         int64_t size() const;
+      |                 ^
+2 warnings and 1 error generated.
+scons: *** [src/gdmidiplayer.os] Error 1
+scons: building terminated because of errors.
+Error: Process completed with exit code 2.
+
+#+end_example
+
+****** Root Cause Analysis
+
+The macOS build uses Apple Clang via Xcode 16.4, which has stricter defaults than
+Linux GCC. Three issues are reported:
+
+******* Error: ~void *~ arithmetic (line 18)
+
+Same issue as Windows builds. Apple Clang treats this as an error by default
+(GCC/Linux Clang treat it as a warning with ~-fpermissive~).
+
+******* Warning: ~sprintf~ deprecation (line 133)
+
+Apple's SDK explicitly deprecates ~sprintf~ due to buffer overflow risks. This
+is a warning, not an error, but indicates code quality issues.
+
+#+begin_src cpp :tangle no
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+#+end_src
+
+******* Warning: VLA as Clang extension (line 159)
+
+Same VLA issue as Windows. Apple Clang warns that VLAs are an extension and
+notes that ~PackedByteArray::size()~ is not ~constexpr~, so the array size
+cannot be determined at compile time.
+
+****** Solution Options
+
+******* Option A: Fix all code issues (Recommended)
+
+The same fixes from the 32-bit Windows TODO apply here, plus the ~sprintf~ fix:
+
+*Fix void* arithmetic* (line 18):
+#+begin_src cpp :tangle no
+memcpy(buf, static_cast<char*>(handle) + position, count);
+#+end_src
+
+*Fix sprintf deprecation* (line 133):
+#+begin_src cpp :tangle no
+// Before:
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+
+// After - use snprintf with explicit buffer size:
+snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+#+end_src
+
+*Fix VLA* (line 159):
+#+begin_src cpp :tangle no
+// Use direct pointer access (see 32-bit Windows TODO for full context)
+fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+#+end_src
+
+Pros:
+- Resolves all errors and warnings
+- Standards-compliant code
+- Works on all platforms
+
+Cons:
+- Requires code changes
+
+******* Option B: Add compiler flags to suppress warnings/errors
+
+For the ~void *~ arithmetic, add ~-Wno-pointer-arith~ to Clang flags.
+For ~sprintf~, add ~-Wno-deprecated-declarations~.
+VLAs cannot be suppressed - they require code changes.
+
+Pros:
+- Minimal code changes (only VLA fix needed)
+
+Cons:
+- Suppresses potentially useful warnings
+- Masks code quality issues
+- VLA still requires fixing
+- Different flags for different compilers
+
+Implementation in SConstruct:
+#+begin_src python :tangle no
+if platform == "macos":
+    env.Append(CCFLAGS=["-Wno-pointer-arith", "-Wno-deprecated-declarations"])
+#+end_src
+
+******* Option C: Enable GCC extensions in Clang
+
+Clang supports ~-fgnu-extensions~ but this doesn't enable ~void *~ arithmetic.
+The ~-fms-extensions~ flag is for MSVC compatibility, not GCC.
+
+This option does not fully solve the problem.
+
+****** Recommendation
+
+**Option A (Fix all code issues)** is the only complete solution.
+
+The macOS errors share root causes with Windows errors, so a single set of fixes
+resolves both platforms. The complete patch for ~src/gdmidiplayer.cpp~ should:
+
+1. Cast ~void*~ to ~char*~ before arithmetic (line 18)
+2. Replace ~sprintf~ with ~snprintf~ (line 133)
+3. Replace VLA with direct ~PackedByteArray::ptr()~ access (lines 159-163)
+
+****** Complete Recommended Patch
+
+The following changes to ~src/gdmidiplayer.cpp~ will fix Windows (32/64-bit) and
+macOS builds:
+
+#+begin_src cpp :tangle no
+// === Line 18: Fix void* arithmetic ===
+// Before:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, (handle + position), count);
+    ...
+}
+// After:
+int my_read(void *buf, long long count, void *handle) {
+    memcpy(buf, static_cast<char*>(handle) + position, count);
+    ...
+}
+
+// === Line 133: Fix sprintf deprecation ===
+// Before:
+sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
+// After:
+snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+
+// === Lines 158-166: Fix VLA ===
+// Before:
+if (byte_array.size() > 0) {
+    char midi_file[byte_array.size()];
+    for (int i = 0; i < byte_array.size(); i++) {
+        midi_file[i] = byte_array[i];
+    }
+    fluid_player_add_mem(player, midi_file, byte_array.size());
+}
+// After:
+if (byte_array.size() > 0) {
+    // PackedByteArray::ptr() returns const uint8_t*
+    // fluid_player_add_mem expects void* and size
+    fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+}
+#+end_src
+
+****** Verification of fluid_player_add_mem Behavior
+
+Before using the zero-copy approach, verify FluidSynth's behavior:
+
+#+begin_src c :tangle no
+// From fluidsynth documentation:
+// int fluid_player_add_mem(fluid_player_t *player, const void *buffer, size_t len)
+//
+// "Add a MIDI file to a player queue, from a buffer in memory."
+// The buffer is COPIED internally by FluidSynth, so the original
+// can be freed after the call returns.
+#+end_src
+
+FluidSynth copies the MIDI data internally, so passing ~byte_array.ptr()~
+directly is safe - the ~PackedByteArray~ can go out of scope after the call.
+
+****** Alternative: std::vector for maximum safety
+
+If there's any doubt about FluidSynth's copy behavior, use ~std::vector~:
+
+#+begin_src cpp :tangle no
+#include <vector>
+
+// In fluidsynth_play():
+if (byte_array.size() > 0) {
+    std::vector<uint8_t> midi_data(byte_array.ptr(),
+                                    byte_array.ptr() + byte_array.size());
+    fluid_player_add_mem(player, midi_data.data(), midi_data.size());
+}
+#+end_src
+
+This creates an explicit copy, ensuring data lifetime is controlled.
+
+***** DONE CI/CD Fix Implementation Summary
+:PROPERTIES:
+:ID:       a1b2c3d4-5678-90ab-cdef-1234567890ab
+:END:
+
+****** Applied Changes (2025-01-25)
+
+All planned fixes have been implemented:
+
+| File                            | Change                                              |
+|---------------------------------+-----------------------------------------------------|
+| ~src/gdmidiplayer.cpp~          | Fixed void* arithmetic (line 18)                    |
+| ~src/gdmidiplayer.cpp~          | Replaced sprintf with snprintf (line 133)           |
+| ~src/gdmidiplayer.cpp~          | Replaced VLA with ptr() access (lines 158-163)      |
+| ~.github/workflows/builds.yml~  | Disabled 32-bit Linux builds                        |
+| ~.github/workflows/builds.yml~  | Switched Windows from MinGW to MSVC                 |
+| ~.github/workflows/builds.yml~  | Split Windows/macOS build steps                     |
+
+****** Issue Dependency Graph
+
+#+begin_example
+┌─────────────────────────────────────────────────────────────────┐
+│                     Code Quality Issues                          │
+│  (void* arithmetic, VLA, sprintf) - affects Windows & macOS      │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────┴──────────────────┐
+        │                                      │
+        ▼                                      ▼
+┌───────────────────┐              ┌───────────────────────┐
+│ 32-bit Windows    │              │ macOS Universal       │
+│ (MSVC errors)     │              │ (Clang errors)        │
+└───────────────────┘              └───────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   Infrastructure Issues                          │
+└─────────────────────────────────────────────────────────────────┘
+        │                                      │
+        ▼                                      ▼
+┌───────────────────┐              ┌───────────────────────┐
+│ 64-bit Windows    │              │ 32-bit Linux          │
+│ (MinGW/Choco)     │              │ (missing i386 lib)    │
+└───────────────────┘              └───────────────────────┘
+#+end_example
+
+****** Recommended Fix Order
+
+| Priority | Issue                | Fix                                      | Effort | Impact           |
+|----------+----------------------+------------------------------------------+--------+------------------|
+|        1 | Code quality (C++)   | Fix void*, VLA, sprintf in gdmidiplayer  | Low    | Unblocks 3 builds|
+|        2 | macOS universal      | Automatically fixed by Priority 1        | None   | macOS works      |
+|        3 | 32-bit Windows       | Automatically fixed by Priority 1        | None   | Win32 works      |
+|        4 | 64-bit Windows       | Use pre-installed MinGW or switch to MSVC| Low    | Win64 works      |
+|        5 | 32-bit Linux         | Skip (deprecated) or add multiarch       | Low    | Optional         |
+
+****** Minimal Viable Fix (APPLIED)
+
+The following patch was applied to ~src/gdmidiplayer.cpp~ on 2025-01-25:
+
+#+begin_src diff :tangle no
+diff --git a/src/gdmidiplayer.cpp b/src/gdmidiplayer.cpp
+--- a/src/gdmidiplayer.cpp
++++ b/src/gdmidiplayer.cpp
+@@ -15,7 +15,7 @@ void *my_open(const char *filename) {
+ }
+
+ int my_read(void *buf, long long count, void *handle) {
+-	memcpy(buf, (handle + position), count);
++	memcpy(buf, static_cast<char*>(handle) + position, count);
+ 	position = position + count;
+
+ 	return FLUID_OK;
+@@ -130,7 +130,7 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
+ 		Ref<SoundFontFileReader> soundfont_file = resource;
+ 		char abused_filename[64];
+ 		const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
+-		sprintf(abused_filename, "&%p", pointer_to_sf2_in_mem);
++		snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+ 		fsize = soundfont_file->get_array_size();
+ 		sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
+ 	}
+@@ -155,13 +155,8 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
+ 		PackedByteArray byte_array = midi->get_data();
+
+ 		if (byte_array.size() > 0) {
+-			char midi_file[byte_array.size()];
+-
+-			for (int i = 0; i < byte_array.size(); i++) {
+-				midi_file[i] = byte_array[i];
+-			}
+-
+-			fluid_player_add_mem(player, midi_file, byte_array.size());
++			// fluid_player_add_mem copies the data internally
++			fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+ 		}
+
+ 		fluid_player_play(player);
+#+end_src
+
+This patch:
+- Fixes macOS universal builds (Clang strict mode)
+- Fixes Windows 32-bit builds (MSVC compliance)
+- Eliminates deprecated API warning
+- Removes unnecessary data copy (performance improvement)
+
+****** Workflow Changes for 64-bit Windows (APPLIED)
+
+The workflow was updated to use MSVC instead of MinGW:
+
+1. Skip ~setup-godot-cpp~ action for Windows (it installs MinGW via Chocolatey)
+2. Set up Python and scons manually for Windows
+3. Pass ~use_mingw=no~ to scons to use MSVC
+
+#+begin_src yaml :tangle no
+# Manual setup for Windows (replaces setup-godot-cpp):
+- name: Setup Python (Windows)
+  if: ${{ matrix.target.platform == 'windows' }}
+  uses: actions/setup-python@v5
+  with:
+    python-version: '3.x'
+
+- name: Setup scons (Windows)
+  if: ${{ matrix.target.platform == 'windows' }}
+  run: python -m pip install scons
+
+# Build with MSVC:
+- name: Build GDExtension (Windows)
+  run: scons ... use_mingw=no
+#+end_src
+
+****** Deferred Items
+
+| Item              | Reason                                                    |
+|-------------------+-----------------------------------------------------------|
+| 32-bit Linux      | Godot 4.x deprecated 32-bit Linux; low user demand        |
+| Double-precision  | Blocked on upstream godot-cpp issue #1729                 |
+| Android           | Requires cross-compiling fluidsynth with NDK              |
+| iOS               | Requires cross-compiling fluidsynth with Xcode toolchain  |
+| WebAssembly       | Requires fluidsynth-emscripten fork                       |
+
+*** Godot 4.7 Migration Follow-up
+:PROPERTIES:
+:ID:       9f1642a1-599e-4bd9-aa6c-abee01e9c2c4
+:END:
+
+**** Overview
+
+After the initial Godot 4.5 migration, we updated the project to target
+Godot 4.7.stable using godot-cpp v10.x master branch. This required several
+significant changes beyond the original 4.5 migration.
+
+**** Completed
+
+***** GDExtension Config Fixes
+
+- Renamed config file to ~gdmidiplayer.gdextension~ and placed at project root
+  (Godot 4.7 scans for .gdextension files at project root in editor mode)
+- Set correct library paths relative to the .gdextension file
+- Removed ~single.editor~ entry from config; ~debug~ feature flag now covers
+  editor mode (Godot 4.7's ~editor~ feature flag is not in the default set)
+- Cleared ~.godot/~ cache to regenerate ~extension_list.cfg~
+
+***** C++ Source Fixes (~src/gdmidiplayer.cpp~)
+
+- ~_bind_methods()~: Removed manual ~_process~ bind (auto-bound by GDCLASS);
+  added ~bind_method~ for ~set_soundfont~, ~get_soundfont~, ~set_midi_file~,
+  ~get_midi_file~ before ~ADD_PROPERTY~ calls
+- Changed ~_process(float)~ to ~_process(double)~ (Godot 4 API change)
+- Initialized all member pointers to ~nullptr~ in constructor
+- Changed ~delete buffer~ to ~delete[] buffer~ in destructor
+- Guarded ~delete_fluid_*~ calls with null checks
+- Added null guards in ~fill_buffer()~ (stream_playback, buffer, synth)
+- Added null guard for ~AudioServer::get_singleton()~ result in ~_init()~
+- Added null guards in ~_process()~ (player, synth checks)
+- ~set_soundfont()~ and ~fluidsynth_play()~: null-check Ref after ~ResourceLoader::load()~ before calling ~->~ methods
+
+***** GDScript Fixes (~addons/midi/~)
+
+- ~import_midi_plugin.gd~ and ~import_soundfont_plugin.gd~:
+  - Removed stale ~.gdns~ preloads
+  - Renamed ~import()~ to ~_import()~ with null guard for FileAccess.open()
+  - ~_get_option_visibility~ fixed to 3-param signature: (String, StringName, Dictionary)
+  - ~_get_import_options~ parameter order: ~(_path, _preset)~
+- ~midi_resource_loader.gd~ and ~soundfont_resource_loader.gd~:
+  - ~load()~ to ~_load(path, original_path, use_sub_threads, cache_mode)~
+  - Null guard for ~FileAccess.open()~
+- ~midi_resource_saver.gd~ and ~soundfont_resource_saver.gd~:
+  - ~save()~ to ~_save(resource, path, flags)~ with correct param order
+  - Added ~return OK~
+
+***** Scene & Assets
+
+- ~main.tscn~: Replaced ~ExtResource~ .gdns reference with ~type="GDMidiAudioStreamPlayer"~
+  (custom type registered by the GDExtension)
+- ~assets/example.mid~ generated via abc2midi from ~example.abc~
+- ~assets/example.sf2~ symlinked to ~/usr/share/soundfonts/freepats-general-midi.sf2~
+
+***** SoundFontFileReader Fixes (~src/soundfont_file_reader.cpp~)
+
+- Initialized ~array_size = 0~ in constructor
+- Fixed ~clear_data()~ to properly reset state
+
+**** Known Issues
+
+***** SIGSEGV with ~target=debug~ build (llvm-symbolizer crash)
+
+Building with ~target=debug~ produces a shared library whose debug info triggers
+a crash in ~llvm-symbolizer~ (from ~libLLVM.so.22.1~). The LLVM symbolizer
+crashes with SIGABRT inside ~llvm::report_fatal_error~ during symbolication.
+
+Workaround: Build with ~target=template_debug~, which produces usable debug info
+without the LLVM symbolizer crash.
+
+***** No Sound / Dead Audio Pipeline
+
+Running the demo scene (~main.tscn~) produces no audible output because:
+
+1. ~stream_playback~ is captured in ~_init()~ via ~get_stream_playback()~,
+   which returns ~null~ at that point (the stream property hasn't been set yet,
+   and the node isn't playing)
+2. ~fill_buffer()~ returns immediately because ~stream_playback~ is null
+3. MIDI data is loaded and the FluidSynth player starts, but audio data is
+   never pushed to Godot's audio stream generator
+
+Fix: Move ~stream_playback~ retrieval into ~fill_buffer()~ (or re-capture when
+playback starts) instead of caching it in ~_init()~.
+
+***** Scene Has No Controls / Scripts
+
+~main.tscn~ consists of a plain ~Node2D~ root and a ~GDMidiAudioStreamPlayer~
+child (the custom GDExtension type). There are no attached GDScript tool scripts
+for UI controls - these would need to be written or ported from the original
+Godot MIDI Player test UI.
+
+**** Next Steps
+
+1. Fix ~stream_playback~ stale reference: get ~get_stream_playback()~ fresh
+   each frame in ~fill_buffer()~ instead of caching in ~_init()~
+2. Verify audio output with headless run
+3. Port or create test UI (controls, script for main node)
+4. Add automated tests
