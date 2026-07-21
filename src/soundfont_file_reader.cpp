@@ -2,21 +2,22 @@
 
 using namespace godot;
 
-SoundFontFileReader::SoundFontFileReader() {
-	array_data = NULL;
+SoundFontFileReader::SoundFontFileReader() :
+	array_size(0),
+	array_data(nullptr) {
 }
 
 SoundFontFileReader::~SoundFontFileReader() {
-	if (array_data != NULL) {
-		delete[] array_data;
-		array_data = nullptr;
-	}
+	delete[] array_data;
 }
 
 void SoundFontFileReader::_init() {
 }
 
 void SoundFontFileReader::clear_data() {
+	delete[] array_data;
+	array_data = nullptr;
+	array_size = 0;
 }
 
 void SoundFontFileReader::set_data(PackedByteArray data) {
