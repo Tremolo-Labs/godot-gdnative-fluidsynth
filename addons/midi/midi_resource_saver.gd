@@ -11,7 +11,7 @@ func _get_recognized_extensions(res):
 func _recognize(res):
 	return res.has_method("get_extension")
 
-func _save(path, resource, flags):
+func _save(resource, path, flags):
 	var f = FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return ERR_FILE_CANT_WRITE

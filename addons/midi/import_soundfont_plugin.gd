@@ -16,7 +16,7 @@ func _get_save_extension():
 func _get_resource_type():
 	return "SoundFontFileReader"
 
-func _get_option_visibility(_str, _option, _options):
+func _get_option_visibility(_option, _option_name, _options):
 	return true
 
 func _get_preset_count():
@@ -25,18 +25,15 @@ func _get_preset_count():
 func _get_preset_name(_preset):
 	return "Default"
 
-func _get_import_options(_preset, _int):
+func _get_import_options(_path, _preset):
 	return []
 
 func _import(source_file, save_path, _options, _r_platform_variants, _r_gen_files):
 	var file = FileAccess.open(source_file, FileAccess.READ)
-	var err = file.get_error()
-	if err != OK:
-		return err
-
+	if file == null:
+		return ERR_FILE_CANT_OPEN
 	var data = file.get_buffer(file.get_length())
 	var soundfont_file = SoundFontFileReader.new()
 	soundfont_file.set_data(data)
 	file.close()
-
 	return ResourceSaver.save(soundfont_file, "%s.%s" % [save_path, _get_save_extension()])

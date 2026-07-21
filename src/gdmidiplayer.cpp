@@ -94,20 +94,26 @@ GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
 
 void GDMidiAudioStreamPlayer::_init() {
 	AudioServer *as = AudioServer::get_singleton();
-	int buf_size = as->get_mix_rate() * 2;
-	buffer = new float[buf_size];
+	if (as) {
+		int buf_size = as->get_mix_rate() * 2;
+		buffer = new float[buf_size];
+	}
 	fluidsynth_playing = false;
 	stream_playback = get_stream_playback();
 }
 
 void GDMidiAudioStreamPlayer::_process(double delta) {
-	if (fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
+	if (player && fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
 		fluid_player_stop(player);
 		fluid_player_join(player);
 		delete_fluid_player(player);
 		fluidsynth_playing = false;
 
 		player = new_fluid_player(synth);
+	}
+
+	if (!synth || !player) {
+		return;
 	}
 
 	if (is_playing() && !fluidsynth_playing) {
@@ -120,6 +126,9 @@ void GDMidiAudioStreamPlayer::_process(double delta) {
 }
 
 void GDMidiAudioStreamPlayer::fill_buffer() {
+	if (!stream_playback || !buffer || !synth) {
+		return;
+	}
 	int64_t to_fill = stream_playback->get_frames_available();
 	if (to_fill > 44100) {
 		to_fill = 44100;
