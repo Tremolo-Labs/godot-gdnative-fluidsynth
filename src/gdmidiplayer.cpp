@@ -136,15 +136,18 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	soundfont = p_soundfont;
 
-	if (ResourceLoader::get_singleton()->exists(soundfont)) {
-		Variant resource = ResourceLoader::get_singleton()->load(soundfont);
-		Ref<SoundFontFileReader> soundfont_file = resource;
-		char abused_filename[64];
-		const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
-		snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
-		fsize = soundfont_file->get_array_size();
-		sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
+	if (!ResourceLoader::get_singleton()->exists(soundfont)) {
+		return;
 	}
+	Ref<SoundFontFileReader> soundfont_file = ResourceLoader::get_singleton()->load(soundfont);
+	if (soundfont_file.is_null()) {
+		return;
+	}
+	char abused_filename[64];
+	const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
+	snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+	fsize = soundfont_file->get_array_size();
+	sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
 }
 
 String GDMidiAudioStreamPlayer::get_soundfont() {
@@ -160,20 +163,21 @@ String GDMidiAudioStreamPlayer::get_midi_file() {
 }
 
 void GDMidiAudioStreamPlayer::fluidsynth_play() {
-	if (ResourceLoader::get_singleton()->exists(midi_file)) {
-		Variant resource = ResourceLoader::get_singleton()->load(midi_file);
-
-		Ref<MidiFileReader> midi = resource;
-		PackedByteArray byte_array = midi->get_data();
-
-		if (byte_array.size() > 0) {
-			// fluid_player_add_mem copies the data internally
-			fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
-		}
-
-		fluid_player_play(player);
-		fluidsynth_playing = true;
+	if (!ResourceLoader::get_singleton()->exists(midi_file)) {
+		return;
 	}
+	Ref<MidiFileReader> midi = ResourceLoader::get_singleton()->load(midi_file);
+	if (midi.is_null()) {
+		return;
+	}
+	PackedByteArray byte_array = midi->get_data();
+
+	if (byte_array.size() > 0) {
+		fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+	}
+
+	fluid_player_play(player);
+	fluidsynth_playing = true;
 }
 
 void GDMidiAudioStreamPlayer::program_select(int chan, int bank_num, int preset_num) {
