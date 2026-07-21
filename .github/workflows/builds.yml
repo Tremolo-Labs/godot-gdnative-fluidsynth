@@ -110,7 +110,7 @@ jobs:
         env:
           SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
         run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
+          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }} api_version=4.7
 
       - name: Build GDExtension (Windows)
         if: ${{ matrix.target.platform == 'windows' }}
@@ -119,7 +119,7 @@ jobs:
           SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
         run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }} use_mingw=no
+          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }} use_mingw=no api_version=4.7
 
       - name: Build GDExtension (macOS)
         if: ${{ matrix.target.platform == 'macos' }}
@@ -128,7 +128,7 @@ jobs:
           SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
         run: |
-          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
+          scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }} api_version=4.7
 
       - name: Save .scons_cache
         uses: ./godot-cpp/.github/actions/godot-cache-save
