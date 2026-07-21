@@ -6,45 +6,18 @@
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters
 
-config_version=4
-
-_global_script_classes=[ {
-"base": "ResourceFormatLoader",
-"class": "MidiDataLoader",
-"language": "GDScript",
-"path": "res://addons/midi/midi_resource_loader.gd"
-}, {
-"base": "ResourceFormatSaver",
-"class": "MidiDataSaver",
-"language": "GDScript",
-"path": "res://addons/midi/midi_resource_saver.gd"
-}, {
-"base": "ResourceFormatLoader",
-"class": "SoundFontDataLoader",
-"language": "GDScript",
-"path": "res://addons/midi/soundfont_resource_loader.gd"
-}, {
-"base": "ResourceFormatSaver",
-"class": "SoundFontDataSaver",
-"language": "GDScript",
-"path": "res://addons/midi/soundfont_resource_saver.gd"
-} ]
-_global_script_class_icons={
-"MidiDataLoader": "",
-"MidiDataSaver": "",
-"SoundFontDataLoader": "",
-"SoundFontDataSaver": ""
-}
+config_version=5
 
 [application]
 
 config/name="MidiPlayer"
 run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
 config/icon="res://icon.png"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/midi/plugin.cfg" )
+enabled=PackedStringArray("res://addons/midi/plugin.cfg")
 
 [mono]
 
@@ -52,4 +25,4 @@ project/assembly_name="MidiPlayer"
 
 [rendering]
 
-environment/default_environment="res://default_env.tres"
+environment/defaults/default_environment="res://default_env.tres"
