@@ -2,8 +2,6 @@
 class_name SoundFontDataLoader
 extends ResourceFormatLoader
 
-const SoundFontFileReader = preload("res://bin/soundfont_file_reader.gdns")
-
 func _get_recognized_extensions():
 	return PackedStringArray(["sf2str"])
 

@@ -2,8 +2,6 @@
 class_name MidiDataLoader
 extends ResourceFormatLoader
 
-const MidiFileReader = preload("res://bin/midi_file_reader.gdns")
-
 func _get_recognized_extensions():
 	return PackedStringArray(["midstr"])
 
