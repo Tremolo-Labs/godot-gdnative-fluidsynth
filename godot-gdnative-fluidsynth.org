@@ -1369,18 +1369,104 @@ The workflow was updated to use MSVC instead of MinGW:
 | iOS               | Requires cross-compiling fluidsynth with Xcode toolchain  |
 | WebAssembly       | Requires fluidsynth-emscripten fork                       |
 
-**** DEFER - [ ] Runtime testing (to be verified)
+*** Godot 4.7 Migration Follow-up
 :PROPERTIES:
 :ID:       9f1642a1-599e-4bd9-aa6c-abee01e9c2c4
 :END:
-Let's port over Godot MIDI Player's test UI. Possibly orchestrate it with gdunit.
 
-**** DEFER cleanup
-:PROPERTIES:
-:ID:       3ab19126-20e6-4a13-8d75-a44fb0931c74
-:END:
+**** Overview
 
-**** DEFER documentation
-:PROPERTIES:
-:ID:       7b84516d-82ac-482c-a71b-980e727cb6f1
-:END:
+After the initial Godot 4.5 migration, we updated the project to target
+Godot 4.7.stable using godot-cpp v10.x master branch. This required several
+significant changes beyond the original 4.5 migration.
+
+**** Completed
+
+***** GDExtension Config Fixes
+
+- Renamed config file to ~gdmidiplayer.gdextension~ and placed at project root
+  (Godot 4.7 scans for .gdextension files at project root in editor mode)
+- Set correct library paths relative to the .gdextension file
+- Removed ~single.editor~ entry from config; ~debug~ feature flag now covers
+  editor mode (Godot 4.7's ~editor~ feature flag is not in the default set)
+- Cleared ~.godot/~ cache to regenerate ~extension_list.cfg~
+
+***** C++ Source Fixes (~src/gdmidiplayer.cpp~)
+
+- ~_bind_methods()~: Removed manual ~_process~ bind (auto-bound by GDCLASS);
+  added ~bind_method~ for ~set_soundfont~, ~get_soundfont~, ~set_midi_file~,
+  ~get_midi_file~ before ~ADD_PROPERTY~ calls
+- Changed ~_process(float)~ to ~_process(double)~ (Godot 4 API change)
+- Initialized all member pointers to ~nullptr~ in constructor
+- Changed ~delete buffer~ to ~delete[] buffer~ in destructor
+- Guarded ~delete_fluid_*~ calls with null checks
+- Added null guards in ~fill_buffer()~ (stream_playback, buffer, synth)
+- Added null guard for ~AudioServer::get_singleton()~ result in ~_init()~
+- Added null guards in ~_process()~ (player, synth checks)
+- ~set_soundfont()~ and ~fluidsynth_play()~: null-check Ref after ~ResourceLoader::load()~ before calling ~->~ methods
+
+***** GDScript Fixes (~addons/midi/~)
+
+- ~import_midi_plugin.gd~ and ~import_soundfont_plugin.gd~:
+  - Removed stale ~.gdns~ preloads
+  - Renamed ~import()~ to ~_import()~ with null guard for FileAccess.open()
+  - ~_get_option_visibility~ fixed to 3-param signature: (String, StringName, Dictionary)
+  - ~_get_import_options~ parameter order: ~(_path, _preset)~
+- ~midi_resource_loader.gd~ and ~soundfont_resource_loader.gd~:
+  - ~load()~ to ~_load(path, original_path, use_sub_threads, cache_mode)~
+  - Null guard for ~FileAccess.open()~
+- ~midi_resource_saver.gd~ and ~soundfont_resource_saver.gd~:
+  - ~save()~ to ~_save(resource, path, flags)~ with correct param order
+  - Added ~return OK~
+
+***** Scene & Assets
+
+- ~main.tscn~: Replaced ~ExtResource~ .gdns reference with ~type="GDMidiAudioStreamPlayer"~
+  (custom type registered by the GDExtension)
+- ~assets/example.mid~ generated via abc2midi from ~example.abc~
+- ~assets/example.sf2~ symlinked to ~/usr/share/soundfonts/freepats-general-midi.sf2~
+
+***** SoundFontFileReader Fixes (~src/soundfont_file_reader.cpp~)
+
+- Initialized ~array_size = 0~ in constructor
+- Fixed ~clear_data()~ to properly reset state
+
+**** Known Issues
+
+***** SIGSEGV with ~target=debug~ build (llvm-symbolizer crash)
+
+Building with ~target=debug~ produces a shared library whose debug info triggers
+a crash in ~llvm-symbolizer~ (from ~libLLVM.so.22.1~). The LLVM symbolizer
+crashes with SIGABRT inside ~llvm::report_fatal_error~ during symbolication.
+
+Workaround: Build with ~target=template_debug~, which produces usable debug info
+without the LLVM symbolizer crash.
+
+***** No Sound / Dead Audio Pipeline
+
+Running the demo scene (~main.tscn~) produces no audible output because:
+
+1. ~stream_playback~ is captured in ~_init()~ via ~get_stream_playback()~,
+   which returns ~null~ at that point (the stream property hasn't been set yet,
+   and the node isn't playing)
+2. ~fill_buffer()~ returns immediately because ~stream_playback~ is null
+3. MIDI data is loaded and the FluidSynth player starts, but audio data is
+   never pushed to Godot's audio stream generator
+
+Fix: Move ~stream_playback~ retrieval into ~fill_buffer()~ (or re-capture when
+playback starts) instead of caching it in ~_init()~.
+
+***** Scene Has No Controls / Scripts
+
+~main.tscn~ consists of a plain ~Node2D~ root and a ~GDMidiAudioStreamPlayer~
+child (the custom GDExtension type). There are no attached GDScript tool scripts
+for UI controls - these would need to be written or ported from the original
+Godot MIDI Player test UI.
+
+**** Next Steps
+
+1. Fix ~stream_playback~ stale reference: get ~get_stream_playback()~ fresh
+   each frame in ~fill_buffer()~ instead of caching in ~_init()~
+2. Verify audio output with headless run
+3. Port or create test UI (controls, script for main node)
+4. Add automated tests
