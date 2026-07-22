@@ -140,6 +140,33 @@ jobs:
           path: |
             ${{ github.workspace }}/bin/**
 
+  test:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfluidsynth-dev pkg-config scons
+
+      - name: Install addon dependencies
+        run: scripts/install_addons.sh
+
+      - name: Build GDExtension
+        run: scons target=template_debug platform=linux arch=x86_64 api_version=4.7
+
+      - name: Run GdUnit4 tests
+        uses: MikeSchulze/gdUnit4-action@v5
+        with:
+          godot-version: 4.7
+          godot-verbose: false
+          timeout: 120000
+
   merge:
     runs-on: ubuntu-22.04
     needs: build
