@@ -126,7 +126,7 @@ void GDMidiAudioStreamPlayer::_process(double delta) {
 }
 
 void GDMidiAudioStreamPlayer::fill_buffer() {
-	if (!stream_playback || !buffer || !synth) {
+	if (stream_playback.is_null() || !buffer || !synth) {
 		return;
 	}
 	int64_t to_fill = stream_playback->get_frames_available();
