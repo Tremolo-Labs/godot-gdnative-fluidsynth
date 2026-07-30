@@ -14,7 +14,7 @@
 #include <godot_cpp/godot.hpp>
 
 namespace godot {
-
+class AudioStreamFluidsynth : public AudioStream {};
 class GDMidiAudioStreamPlayer : public AudioStreamPlayer {
 	GDCLASS(GDMidiAudioStreamPlayer, AudioStreamPlayer)
 
@@ -39,9 +39,9 @@ public:
 	GDMidiAudioStreamPlayer();
 	~GDMidiAudioStreamPlayer();
 
-	void _init(); // our initializer called by Godot
+	void _ready(); // our initializer called by Godot
 
-	void _process(double delta);
+	void _process(double delta) override;
 	void set_soundfont(String p_soundfont);
 	String get_soundfont();
 

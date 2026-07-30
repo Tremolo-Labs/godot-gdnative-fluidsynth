@@ -92,7 +92,7 @@ GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
 	if (settings) delete_fluid_settings(settings);
 }
 
-void GDMidiAudioStreamPlayer::_init() {
+void GDMidiAudioStreamPlayer::_ready() {
 	AudioServer *as = AudioServer::get_singleton();
 	if (as) {
 		int buf_size = as->get_mix_rate() * 2;
