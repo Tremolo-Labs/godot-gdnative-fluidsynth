@@ -5,7 +5,7 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include "gdmidiplayer.h"
+#include "godot_fluidsynth.h"
 #include "midi_file_reader.h"
 #include "soundfont_file_reader.h"
 using namespace godot;
@@ -27,7 +27,7 @@ void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
 
 extern "C" {
 // Initialization
-GDExtensionBool GDE_EXPORT gdmidiplayer_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
+GDExtensionBool GDE_EXPORT godot_fluidsynth_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
 	GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 	init_obj.register_initializer(initialize_gdextension_types);
 	init_obj.register_terminator(uninitialize_gdextension_types);

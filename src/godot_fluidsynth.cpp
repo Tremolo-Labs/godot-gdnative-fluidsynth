@@ -1,4 +1,4 @@
-#include "gdmidiplayer.h"
+#include "godot_fluidsynth.h"
 
 using namespace godot;
 

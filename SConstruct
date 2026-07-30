@@ -6,8 +6,8 @@ import subprocess
 from methods import print_error
 
 
-libname = "gdmidiplayer"
-projectdir = "gdmidiplayer"
+libname = "godot_fluidsynth"
+projectdir = "project"
 
 localEnv = Environment(tools=["default"], PLATFORM="")
 

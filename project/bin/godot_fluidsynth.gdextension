@@ -1,0 +1,8 @@
+[configuration]
+
+entry_symbol = "godot_fluidsynth_library_init"
+compatibility_minimum = "4.1"
+
+[libraries]
+
+linux.x86_64.single.editor = "./linux/libgodot_fluidsynth.linux.editor.x86_64.so"
