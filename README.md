@@ -1,36 +1,65 @@
-godot-gdextension-fluidsynth
-============================
+# Godot Fluidsynth
 
-Godot GDExtension fluidsynth library to allow playing music using fluidsynth.
+Godot gdnative fluidsynth library to allow playing music using fluidsynth. Based on the template at <https://github.com/godotengine/godot-cpp-template>
 
-## Contents
-* godot-cpp as a submodule (`godot-cpp/`) — version 10.x (targeting Godot 4.7)
-* GitHub CI/CD workflows to build and publish library packages (`.github/workflows/builds.yml`)
-* preconfigured C++ GDExtension source files (`src/`)
-* setup to automatically generate `.xml` files in a `doc_classes/` directory to be parsed by Godot as [GDExtension built-in documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/gdextension_docs_system.html)
+Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
+
+-   `GDMidiAudioStreamPlayer` - AudioStreamPlayer subclass for MIDI playback
+-   `MidiFileReader` - Resource class for loading .mid files
+-   `SoundFontFileReader` - Resource class for loading .sf2 soundfont files
 
 
-### Configuring an IDE
-You can develop your own extension with any text editor and by invoking scons on the command line, but if you want to work with an IDE (Integrated Development Environment), you can use a compilation database file called `compile_commands.json`. Most IDEs should automatically identify this file, and self-configure appropriately.
-To generate the database file, you can run one of the following commands in the project root directory:
-```shell
-# Generate compile_commands.json while compiling
-scons compiledb=yes
 
-# Generate compile_commands.json without compiling
-scons compiledb=yes compile_commands.json
-```
+### Build Commands
 
-## Building
+1.  Prerequisites (Ubuntu/Debian)
 
-Install system dependencies for Ubuntu:
+        apt install fluidsynth libfluidsynth-dev scons
 
-    sudo apt install fluidsynth libfluidsynth-dev scons
+2.  First-time setup
 
-Initialize git submodules:
+        git submodule update --init --recursive
 
-    git submodule update --init --recursive
+3.  Build the extension
 
-Build:
+        # Debug build (default)
+        scons platform=linux
 
-    scons api_version=4.7
+        # Release build
+        scons target=template_release platform=linux
+
+        # With compile_commands.json for IDE support
+        scons compiledb=yes platform=linux
+
+
+
+### Architecture
+
+1.  Source Files (src/)
+| File                        | Purpose                                                |
+|-----------------------------+--------------------------------------------------------|
+| register_types.cpp          | GDExtension entry point, registers all classes         |
+| gdmidiplayer.cpp/h          | Main GDMidiAudioStreamPlayer class wrapping FluidSynth |
+| midi_file_reader.cpp/h      | Resource loader for MIDI files                         |
+| soundfont_file_reader.cpp/h | Resource loader for SoundFont files                    |
+
+2.  Integration Pattern
+
+    FluidSynth expects file paths, but Godot resources are in-memory. The extension uses a custom sfloader with memory callbacks (`my_open`, `my_read`, `my_seek`, `my_tell`, `my_close`) that interpret a pointer address encoded as a string (`"&%p"`) to load soundfonts from Godot's resource system.
+
+3.  Build Output
+
+    -   `bin/<platform>/` - Raw build output
+    -   `gdmidiplayer/bin/<platform>/` - Copied for Godot project use
+
+
+
+### Platform Support
+| Platform | Method     | Status    |
+|----------+------------+-----------|
+| Linux    | pkg-config | Supported |
+| Windows  | vcpkg      | Manual    |
+| macOS    | vcpkg      | Manual    |
+| Android  | NDK        | Manual    |
+| iOS      | Xcode      | Manual    |
+| Web      | Emscripten | Manual    |
