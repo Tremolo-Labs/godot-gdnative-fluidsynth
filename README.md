@@ -22,14 +22,11 @@ Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 
 3.  Build the extension
 
-        # Debug build (default)
-        scons platform=linux
-
-        # Release build
-        scons target=template_release platform=linux
+        # Editor build
+        scons api_version=4.7 target=template_editor
 
         # With compile_commands.json for IDE support
-        scons compiledb=yes platform=linux
+        scons api_version=4.7 target=template_editor compiledb=yes
 
 
 
@@ -39,7 +36,7 @@ Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 | File                        | Purpose                                                |
 |-----------------------------+--------------------------------------------------------|
 | register_types.cpp          | GDExtension entry point, registers all classes         |
-| gdmidiplayer.cpp/h          | Main GDMidiAudioStreamPlayer class wrapping FluidSynth |
+| godot_fluidsynth.cpp/h      | Main GDMidiAudioStreamPlayer class wrapping FluidSynth |
 | midi_file_reader.cpp/h      | Resource loader for MIDI files                         |
 | soundfont_file_reader.cpp/h | Resource loader for SoundFont files                    |
 
