@@ -2,9 +2,9 @@
 *.gen.*
 .godot/
 
-# Third-party addons (installed via scripts/install_addons.sh)
-addons/*
-!addons/midi/
+# Third-party addons (installed via 'make addons')
+project/addons/*
+!project/addons/midi/
 
 # Ignore library files but not the gdextension file
 /bin/**

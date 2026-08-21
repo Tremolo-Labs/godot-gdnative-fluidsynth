@@ -149,8 +149,8 @@ Godot instance. C++ unit tests cover standalone logic that doesn't need Godot
 
 
 1. **GdUnit4** (GDScript/GDExtension) — tests that run inside Godot.
-   Downloaded and installed by ~scripts/install_addons.sh~.
-   CI runs via MikeSchulze/gdUnit4-action@v5.
+   Downloaded by ~make addons~ (manifest: ~addons.ini~, see Addons management
+   below). CI runs via MikeSchulze/gdUnit4-action@v5.
 
 
 *** Doctest for C++ tests
@@ -207,11 +207,51 @@ TEST_CASE("my_read advances position") {
 #+end_src
 ** Addons management
 
-- Third-party addons (gdUnit4) are NOT tracked in git.
-  ~addons/*~ is gitignored; ~!addons/midi/~ exception keeps the project's own
-  addon tracked.
-- ~scripts/install_addons.sh~ downloads gdUnit4 archive from GitHub and
-  extracts ~addons/gdUnit4/~.
-- CI runs the install script before building, then runs tests after build.
-- Local dev: run ~scripts/install_addons.sh~ after clone, then
-  ~godot --headless --addon gdUnit4~.
+Third-party dependencies are provisioned by the build system itself: one data
+file (~addons.ini~) declares each required addon, and ~scons addons~ fetches
+and installs them. Dependencies are a build concern — tests are just the first
+consumer — so the logic lives in SConstruct rather than in bespoke scripts.
+
+- ~make addons~ is a thin wrapper over ~scons addons~.
+- Parsing uses Python's stdlib ~configparser~, in process. Fetch and extraction
+  are a pure-Python action (~urllib~ + ~tarfile~ in ~methods.py~), so there
+  are no curl/wget/tar portability constraints.
+- Each addon installs under ~project/addons/<name>/~ — inside the Godot
+  project, so ~res://~ paths resolve. A ~.installed~ stamp makes repeat runs
+  a no-op and records which version was installed; when it disagrees with the
+  manifest, the next run reinstalls (deleting the addon directory also forces
+  a refetch).
+- ~project/addons/*~ is gitignored; ~!project/addons/midi/~ keeps the
+  project's own addon tracked.
+- CI (~builds.yml~ test job) runs ~make addons~ before building, then runs
+  tests via MikeSchulze/gdUnit4-action@v5. Note: the action requires the
+  ~paths~ input and supports ~project_dir: project/~ for this layout.
+
+Manifest sketch:
+
+#+begin_src ini :tangle no
+[gdUnit4]
+version = v6.2.1
+url = https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/{version}.tar.gz
+archive-subdir = addons/gdUnit4
+destination = project/addons/gdUnit4
+#+end_src
+
+Rejected alternatives: hand-rolled sed/awk parsing (fragile, duplicates stdlib
+semantics); Godot's ConfigFile class (would need a Godot binary before
+dependencies exist); external package managers (godam/gpm/GodotEnv — extra
+toolchain for little gain while the manifest stays small).
+
+*** Running tests locally
+
+Enable the editor plugin once via Project Settings → Plugins (Godot records
+it under ~[editor_plugins]~ in ~project/project.godot~). Headless CLI run:
+
+#+begin_src sh
+cd project
+GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh -a res://test
+#+end_src
+
+There is no ~--addon~ command-line flag in Godot; enabling a plugin happens
+through ~project.godot~, and headless test execution does not require the
+editor plugin at all (~GdUnitCmdTool.gd~ drives it).

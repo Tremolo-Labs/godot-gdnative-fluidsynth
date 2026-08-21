@@ -155,7 +155,7 @@ jobs:
           sudo apt-get install -y libfluidsynth-dev pkg-config scons
 
       - name: Install addon dependencies
-        run: scripts/install_addons.sh
+        run: make addons
 
       - name: Build GDExtension
         run: scons target=template_debug platform=linux arch=x86_64 api_version=4.7

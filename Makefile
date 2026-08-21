@@ -19,3 +19,7 @@ godot-cpp:
 assets:
 	cp /usr/share/sounds/sf2/FluidR3_GM.sf2 project/assets/example.sf2
 	abc2midi project/assets/example.abc -o project/assets/example.mid
+
+.PHONY: addons
+addons:
+	scons addons
