@@ -72,7 +72,6 @@ GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() :
 	player(nullptr),
 	adriver(nullptr) {
 	settings = new_fluid_settings();
-	fluid_settings_setstr(settings, "audio.driver", "pulseaudio");
 	synth = new_fluid_synth(settings);
 	player = new_fluid_player(synth);
 	fluid_sfloader_t *my_sfloader = new_fluid_defsfloader(settings);
@@ -152,11 +151,24 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	if (soundfont_file.is_null()) {
 		return;
 	}
-	char abused_filename[64];
-	const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
-	snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
-	fsize = soundfont_file->get_array_size();
-	sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
+	// FluidSynth >= 2.6 stats the sfload path for its sample cache; our encoded
+	// memory pseudo-path makes std::filesystem throw and abort the process.
+	// Write the SoundFont to a real file and let the default loader handle it.
+	static int temp_counter = 0;
+	String temp_path = OS::get_singleton()->get_user_data_dir()
+			+ "/godot_fluidsynth_" + String::num_int64(OS::get_singleton()->get_process_id())
+			+ "_" + String::num_int64(temp_counter++) + ".sf2";
+
+	Ref<FileAccess> f = FileAccess::open(temp_path, FileAccess::WRITE);
+	if (f.is_null()) {
+		return;
+	}
+	f->store_buffer(soundfont_file->get_data());
+	f->close();
+
+	sfont_id = fluid_synth_sfload(synth, temp_path.utf8().get_data(), 1);
+
+	DirAccess::remove_absolute(temp_path);
 }
 
 String GDMidiAudioStreamPlayer::get_soundfont() {

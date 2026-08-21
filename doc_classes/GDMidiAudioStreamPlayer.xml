@@ -13,20 +13,6 @@
 	</description>
 	<tutorials>
 	</tutorials>
-	<properties>
-		<property name="soundfont" type="String">
-			<description>
-				Path to the SoundFont resource (.sf2str file) to use for synthesis.
-				The SoundFont must be imported as a SoundFontFileReader resource.
-			</description>
-		</property>
-		<property name="midi file" type="String">
-			<description>
-				Path to the MIDI file resource (.midstr file) to play.
-				The MIDI file must be imported as a MidiFileReader resource.
-			</description>
-		</property>
-	</properties>
 	<methods>
 		<method name="fluidsynth_play" qualifiers="">
 			<return type="void" />
@@ -109,10 +95,18 @@
 			</description>
 		</method>
 	</methods>
+	<members>
+		<member name="soundfont" type="String" setter="set_soundfont" getter="get_soundfont">
+			Path to the SoundFont resource (.sf2str file) to use for synthesis.
+			The SoundFont must be imported as a SoundFontFileReader resource.
+		</member>
+		<member name="midi file" type="String" setter="set_midi_file" getter="get_midi_file">
+			Path to the MIDI file resource (.midstr file) to play.
+			The MIDI file must be imported as a MidiFileReader resource.
+		</member>
+	</members>
 	<signals>
 	</signals>
 	<constants>
 	</constants>
-	<description>
-	</description>
 </class>

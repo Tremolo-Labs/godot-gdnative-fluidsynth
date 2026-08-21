@@ -12,13 +12,6 @@
 	</description>
 	<tutorials>
 	</tutorials>
-	<properties>
-		<property name="data" type="PackedByteArray">
-			<description>
-				The raw MIDI file data as a byte array.
-			</description>
-		</property>
-	</properties>
 	<methods>
 		<method name="set_data" qualifiers="">
 			<return type="void" />
@@ -40,6 +33,11 @@
 			</description>
 		</method>
 	</methods>
+	<members>
+		<member name="data" type="PackedByteArray" setter="set_data" getter="get_data">
+			The raw MIDI file data as a byte array.
+		</member>
+	</members>
 	<signals>
 	</signals>
 	<constants>
