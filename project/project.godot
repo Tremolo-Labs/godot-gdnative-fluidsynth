@@ -13,7 +13,6 @@ config_version=5
 config/name="MidiPlayer"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
-config/icon="res://icon.svg"
 
 [editor_plugins]
 
