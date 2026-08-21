@@ -140,3 +140,78 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 	}
 }
 #+end_example
+
+** Testing Framework
+
+GDScript/integration tests verify the GDExtension classes inside a running
+Godot instance. C++ unit tests cover standalone logic that doesn't need Godot
+(helper functions, data transforms).
+
+
+1. **GdUnit4** (GDScript/GDExtension) — tests that run inside Godot.
+   Downloaded and installed by ~scripts/install_addons.sh~.
+   CI runs via MikeSchulze/gdUnit4-action@v5.
+
+
+*** Doctest for C++ tests
+**Doctest** (C++) — header-only unit test framework for standalone C++ logic.
+   Add ~doctest.h~ to ~tests/~, write test files as ~tests/cpp_*.cpp~ that
+   compile with a separate ~#define DOCTEST_CONFIG_IMPLEMENT~ main.
+
+Doctest is a good fit for this project because:
+
+- Header-only: no separate build/link of a test framework
+- Fast compilation: important for a GDExtension that rebuilds frequently
+- Minimal setup: drop ~doctest.h~ in ~tests/~, write test files with
+  ~DOCTEST_CONFIG_IMPLEMENT~ in exactly one translation unit
+- Standalone: tests can compile and run without Godot for pure logic
+
+Usage sketch:
+#+begin_src cpp :tangle no
+// tests/cpp_sfloader.cpp
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
+#include <cstring>
+
+extern int position;
+extern long fsize;
+extern void *my_open(const char *);
+extern int my_read(void *, long long, void *);
+extern int my_seek(void *, long long, int);
+
+TEST_CASE("my_open parses &%p encoded pointer") {
+    int x = 42;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "&%p", &x);
+    void *result = my_open(buf);
+    CHECK(result == &x);
+}
+
+TEST_CASE("my_seek rejects out-of-bounds") {
+    position = 0;
+    fsize = 100;
+    CHECK(my_seek(nullptr, -1, SEEK_SET) == FLUID_FAILED);
+    CHECK(my_seek(nullptr, 101, SEEK_SET) == FLUID_FAILED);
+}
+
+TEST_CASE("my_read advances position") {
+    position = 0;
+    fsize = 10;
+    char src[10] = "abcdefghi";
+    char dst[10] = {};
+    CHECK(my_read(dst, 3, src) == FLUID_OK);
+    CHECK(position == 3);
+    CHECK(dst[0] == 'a');
+    CHECK(dst[2] == 'c');
+}
+#+end_src
+** Addons management
+
+- Third-party addons (gdUnit4) are NOT tracked in git.
+  ~addons/*~ is gitignored; ~!addons/midi/~ exception keeps the project's own
+  addon tracked.
+- ~scripts/install_addons.sh~ downloads gdUnit4 archive from GitHub and
+  extracts ~addons/gdUnit4/~.
+- CI runs the install script before building, then runs tests after build.
+- Local dev: run ~scripts/install_addons.sh~ after clone, then
+  ~godot --headless --addon gdUnit4~.
