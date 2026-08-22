@@ -161,10 +161,9 @@ jobs:
         run: scons target=template_debug platform=linux arch=x86_64 api_version=4.7
 
       - name: Run GdUnit4 tests
-        uses: godot-gdunit-labs/gdUnit4-action@v6
+        uses: godot-gdunit-labs/gdUnit4-action@v1
         with:
           godot-version: 4.7
-          godot-verbose: false
           timeout: 120000
 
   merge:
