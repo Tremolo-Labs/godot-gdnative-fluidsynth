@@ -60,3 +60,6 @@ CMakeUserPresets.json
 
 # project assets
 project/assets/
+
+# gdUnit reports
+project/reports/
