@@ -142,15 +142,12 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 #+end_example
 
 ** Testing Framework
-
 GDScript/integration tests verify the GDExtension classes inside a running
 Godot instance. C++ unit tests cover standalone logic that doesn't need Godot
 (helper functions, data transforms).
 
-
-1. **GdUnit4** (GDScript/GDExtension) — tests that run inside Godot.
-   Downloaded by ~make addons~ (manifest: ~addons.ini~, see Addons management
-   below). CI runs via MikeSchulze/gdUnit4-action@v5.
+*** GdUnit4 for GDScript
+**GdUnit4** (GDScript/GDExtension) — tests that run inside Godot. Downloaded by ~make addons~ (manifest: ~addons.ini~, see Addons management below).
 
 
 *** Doctest for C++ tests
@@ -205,6 +202,18 @@ TEST_CASE("my_read advances position") {
     CHECK(dst[2] == 'c');
 }
 #+end_src
+*** Running tests locally
+Enable the editor plugin once via Project Settings → Plugins (Godot records
+it under ~[editor_plugins]~ in ~project/project.godot~). Headless CLI run:
+
+#+begin_src sh
+cd project
+GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh -a res://test
+#+end_src
+
+There is no ~--addon~ command-line flag in Godot; enabling a plugin happens
+through ~project.godot~, and headless test execution does not require the
+editor plugin at all (~GdUnitCmdTool.gd~ drives it).
 ** Addons management
 
 Third-party dependencies are provisioned by the build system itself: one data
@@ -241,17 +250,3 @@ Rejected alternatives: hand-rolled sed/awk parsing (fragile, duplicates stdlib
 semantics); Godot's ConfigFile class (would need a Godot binary before
 dependencies exist); external package managers (godam/gpm/GodotEnv — extra
 toolchain for little gain while the manifest stays small).
-
-*** Running tests locally
-
-Enable the editor plugin once via Project Settings → Plugins (Godot records
-it under ~[editor_plugins]~ in ~project/project.godot~). Headless CLI run:
-
-#+begin_src sh
-cd project
-GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh -a res://test
-#+end_src
-
-There is no ~--addon~ command-line flag in Godot; enabling a plugin happens
-through ~project.godot~, and headless test execution does not require the
-editor plugin at all (~GdUnitCmdTool.gd~ drives it).
