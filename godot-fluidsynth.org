@@ -1,0 +1,2 @@
+* Godot Fluidsynth
+This plugin exposes fluidsynth to the Godot gaming engine. It was developed to provide realtime MIDI playback performance, and complement Godot's built-in MIDI and several other excellent addons written in GDScript.
