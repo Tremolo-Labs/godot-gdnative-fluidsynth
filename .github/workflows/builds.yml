@@ -140,31 +140,7 @@ jobs:
           path: |
             ${{ github.workspace }}/bin/**
 
-  test:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfluidsynth-dev pkg-config scons
-
-      - name: Install addon dependencies
-        run: make addons
-
-      - name: Build GDExtension
-        run: scons target=template_debug platform=linux arch=x86_64 api_version=4.7
-
-      - name: Run GdUnit4 tests
-        uses: godot-gdunit-labs/gdUnit4-action@v1
-        with:
-          godot-version: 4.7
-          timeout: 120000
 
   merge:
     runs-on: ubuntu-22.04
@@ -176,3 +152,34 @@ jobs:
           name: gdmidiplayer
           pattern: gdmidiplayer-*
           delete-merged: true
+  test:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+    runs-on: ubuntu-22.04
+    needs: merge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install fluidsynth (runtime dep of built extension)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfluidsynth-dev
+
+      - name: Download built extension
+        uses: actions/download-artifact@v4
+        with:
+          name: gdmidiplayer
+          path: bin/
+
+      - name: Place extension libraries where res:// expects them
+        run: mkdir -p project/bin && cp -r bin/linux project/bin/
+
+      - name: Run GdUnit4 tests
+        uses: godot-gdunit-labs/gdUnit4-action@v1
+        with:
+          godot-version: 4.7
+          project_dir: project/
+          paths: |
+            res://test/unit
+            res://test/integration
+          timeout: 10
