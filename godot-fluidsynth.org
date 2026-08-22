@@ -1,2 +1,145 @@
 * Godot Fluidsynth
-This plugin exposes fluidsynth to the Godot gaming engine. It was developed to provide realtime MIDI playback performance, and complement Godot's built-in MIDI and several other excellent addons written in GDScript.
+This plugin exposes [[https://www.fluidsynth.org/][FluidSynth]] to the Godot gaming engine by means of [[https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html][GDExtension]]. It was developed to provide realtime MIDI playback performance, and complement Godot's built-in MIDI input event handling and other excellent addons written in GDScript.
+
+
+** Classes and resources
+Three classes are registered with the engine, and a small GDScript addon teaches Godot's importer about MIDI assets:
+
+- ~GDMidiAudioStreamPlayer~ :: An ~AudioStreamPlayer~ subclass that synthesizes a Standard MIDI File through FluidSynth in realtime, pushing rendered stereo frames into the audio stream each frame.
+- ~MidiFileReader~ :: A ~Resource~ holding raw ~.mid~ bytes (~PackedByteArray~) so MIDI data can travel inside Godot's resource system.
+- ~SoundFontFileReader~ :: A ~Resource~ holding raw ~.sf2~ bytes, likewise.
+- ~addons/midi/~ :: Import/save/load plugins converting ~.mid~ → ~.midstr~ and ~.sf2~ → ~.sf2str~.
+
+The readers are minimal byte containers: parsing belongs to FluidSynth, which ships its own excellent test suite. Keeping them thin keeps this codebase thin.
+
+** Importing MIDI assets
+Godot only packs *imported* resources into exports, so opaque binary assets would silently vanish from a shipped game. The import plugins turn ~.mid~ and ~.sf2~ files into first-class resources (~.midstr~, ~.sf2str~), letting your SoundFonts and MIDI files survive export without manual ~include_filter~ incantations.
+
+** Getting started
+Build prerequisites and commands live in the [[https://github.com/Tremolo-Labs/godot-fluidsynth#readme][README]]; the short version: ~libfluidsynth-dev~ ≥ 2.6, SCons, and the ~godot-cpp~ submodule, then ~scons api_version=4.7 target=template_editor~. Built libraries land in ~bin/~ at the repo root; the demo project expects them under ~project/bin/~ for ~res://~ resolution.
+
+** Playing a MIDI file
+#+begin_src gdscript
+var player := GDMidiAudioStreamPlayer.new()
+add_child(player)
+player.set_soundfont("res://music/FluidR3_GM.sf2")
+player.set_midi_file("res://music/song.mid")
+player.fluidsynth_play()
+
+# Or drive the synth directly:
+player.program_select(0, 0, 0)
+player.note_on(0, 60, 127)    # middle C, full velocity
+player.pitch_bend(0, 8192)    # 14-bit value, 8192 = centered
+player.note_off(0, 60)
+#+end_src
+
+Paths passed to the player resolve through Godot's resource system, so imported assets work as-is.
+
+** Loading SoundFonts at runtime
+A SoundFont lives inside Godot's resource system as opaque bytes, but FluidSynth's loader wants a real path on disk: since version 2.6 it stats the sfload path while building its sample cache, so handing it a memory pseudo-path aborts the process outright. The workaround is a round trip through a uniquely-named temp file under ~user://~, deleted again once ~fluid_synth_sfload~ has consumed it.
+
+Issue [#24](https://github.com/Tremolo-Labs/godot-fluidsynth/issues/24) tracks filing this upstream so the in-memory loader can return; its legacy callbacks still sit unused in [[file:src/godot_fluidsynth.cpp][src/godot_fluidsynth.cpp]].
+
+#+begin_example cpp
+void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
+	soundfont = p_soundfont;
+
+	if (!ResourceLoader::get_singleton()->exists(soundfont)) {
+		return;
+	}
+	Ref<SoundFontFileReader> soundfont_file = ResourceLoader::get_singleton()->load(soundfont);
+	if (soundfont_file.is_null()) {
+		return;
+	}
+	// FluidSynth >= 2.6 stats the sfload path for its sample cache; our encoded
+	// memory pseudo-path makes std::filesystem throw and abort the process.
+	// Write the SoundFont to a real file and let the default loader handle it.
+	static int temp_counter = 0;
+	String temp_path = OS::get_singleton()->get_user_data_dir()
+			+ "/godot_fluidsynth_" + String::num_int64(OS::get_singleton()->get_process_id())
+			+ "_" + String::num_int64(temp_counter++) + ".sf2";
+
+	Ref<FileAccess> f = FileAccess::open(temp_path, FileAccess::WRITE);
+	if (f.is_null()) {
+		return;
+	}
+	f->store_buffer(soundfont_file->get_data());
+	f->close();
+
+	sfont_id = fluid_synth_sfload(synth, temp_path.utf8().get_data(), 1);
+
+	DirAccess::remove_absolute(temp_path);
+}
+#+end_example
+
+** Handing MIDI data to the synthesizer
+MIDI needs no such dance: FluidSynth accepts raw song bytes directly through ~fluid_player_add_mem~, so a loaded ~MidiFileReader~ feeds the player straight from memory — no filesystem, no temp files.
+
+#+begin_example cpp
+void GDMidiAudioStreamPlayer::fluidsynth_play() {
+	if (!ResourceLoader::get_singleton()->exists(midi_file)) {
+		return;
+	}
+	Ref<MidiFileReader> midi = ResourceLoader::get_singleton()->load(midi_file);
+	if (midi.is_null()) {
+		return;
+	}
+	PackedByteArray byte_array = midi->get_data();
+
+	if (byte_array.size() > 0) {
+		fluid_player_add_mem(player, byte_array.ptr(), byte_array.size());
+	}
+
+	fluid_player_play(player);
+	fluidsynth_playing = true;
+}
+#+end_example
+
+** Rendering pipeline
+An ~AudioStreamPlayer~ expects someone to fill its playback buffer, and nothing in FluidSynth pushes audio on its own — so every frame the node drains the synthesizer by hand. ~_process~ also doubles as the lifecycle watchdog: when FluidSynth reports the song finished, the player object is torn down and a fresh one replaces it lazily.
+
+#+begin_example cpp
+void GDMidiAudioStreamPlayer::_process(double delta) {
+	if (player && fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
+		fluid_player_stop(player);
+		fluid_player_join(player);
+		delete_fluid_player(player);
+		fluidsynth_playing = false;
+
+		player = new_fluid_player(synth);
+	}
+
+	if (!synth || !player) {
+		return;
+	}
+
+	if (is_playing() && !fluidsynth_playing) {
+		fluidsynth_play();
+	}
+
+	if (is_playing()) {
+		fill_buffer();
+	}
+}
+#+end_example
+
+~fill_buffer~ renders however many frames the stream can accept (capped at 44100 per pass) into an interleaved buffer, then walks it two floats at a time pushing stereo frames:
+
+#+begin_example cpp
+void GDMidiAudioStreamPlayer::fill_buffer() {
+	if (stream_playback.is_null() || !buffer || !synth) {
+		return;
+	}
+	int64_t to_fill = stream_playback->get_frames_available();
+	if (to_fill > 44100) {
+		to_fill = 44100;
+	}
+	fluid_synth_write_float(synth, to_fill, buffer, 0, 2, buffer, 1, 2);
+	int index = 0;
+	while (to_fill > 0) {
+		stream_playback->push_frame(Vector2(buffer[index], buffer[index + 1]));
+		index = index + 2;
+		to_fill = to_fill - 1;
+	}
+}
+#+end_example
