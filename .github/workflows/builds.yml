@@ -153,6 +153,8 @@ jobs:
           pattern: gdmidiplayer-*
           delete-merged: true
   test:
+    permissions:
+      checks: write
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
     runs-on: ubuntu-22.04
     needs: merge
@@ -173,6 +175,9 @@ jobs:
 
       - name: Place extension libraries where res:// expects them
         run: mkdir -p project/bin && cp -r bin/linux project/bin/
+
+      - name: make assets
+        run: make assets
 
       - name: Run GdUnit4 tests
         uses: godot-gdunit-labs/gdUnit4-action@v1
