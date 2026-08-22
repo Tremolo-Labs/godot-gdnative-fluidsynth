@@ -29,7 +29,7 @@ func test_get_data_returns_independent_copy():
 func test_real_asset_roundtrip():
 	var f = FileAccess.open("res://assets/example.mid", FileAccess.READ)
 	if f == null:
-		fail_test("res://assets/example.mid missing — run 'make assets' first")
+		fail("res://assets/example.mid missing — run 'make assets' first")
 		return
 	var original = f.get_buffer(f.get_length())
 	f.close()
@@ -43,7 +43,7 @@ func test_real_asset_roundtrip():
 func test_real_asset_has_mthd_header():
 	var f = FileAccess.open("res://assets/example.mid", FileAccess.READ)
 	if f == null:
-		fail_test("res://assets/example.mid missing — run 'make assets' first")
+		fail("res://assets/example.mid missing — run 'make assets' first")
 		return
 	var reader = MidiFileReader.new()
 	reader.set_data(f.get_buffer(f.get_length()))
