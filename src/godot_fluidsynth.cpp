@@ -89,6 +89,9 @@ GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
 	if (player) delete_fluid_player(player);
 	if (synth) delete_fluid_synth(synth);
 	if (settings) delete_fluid_settings(settings);
+	if (temp_path != "") {
+		DirAccess::remove_absolute(temp_path);
+	}
 }
 
 void GDMidiAudioStreamPlayer::_ready() {
@@ -154,21 +157,28 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	// FluidSynth >= 2.6 stats the sfload path for its sample cache; our encoded
 	// memory pseudo-path makes std::filesystem throw and abort the process.
 	// Write the SoundFont to a real file and let the default loader handle it.
+	// The cache build is lazy, so the file must outlive sfload(): it is removed
+	// on the next successful load, or when this player is destroyed.
 	static int temp_counter = 0;
-	String temp_path = OS::get_singleton()->get_user_data_dir()
+	String new_path = OS::get_singleton()->get_user_data_dir()
 			+ "/godot_fluidsynth_" + String::num_int64(OS::get_singleton()->get_process_id())
 			+ "_" + String::num_int64(temp_counter++) + ".sf2";
 
-	Ref<FileAccess> f = FileAccess::open(temp_path, FileAccess::WRITE);
+	Ref<FileAccess> f = FileAccess::open(new_path, FileAccess::WRITE);
 	if (f.is_null()) {
 		return;
 	}
 	f->store_buffer(soundfont_file->get_data());
 	f->close();
 
-	sfont_id = fluid_synth_sfload(synth, temp_path.utf8().get_data(), 1);
+	sfont_id = fluid_synth_sfload(synth, new_path.utf8().get_data(), 1);
 
-	DirAccess::remove_absolute(temp_path);
+	if (sfont_id >= 0) {
+		if (temp_path != "") {
+			DirAccess::remove_absolute(temp_path);
+		}
+		temp_path = new_path;
+	}
 }
 
 String GDMidiAudioStreamPlayer::get_soundfont() {

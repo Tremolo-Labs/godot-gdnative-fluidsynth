@@ -140,3 +140,53 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 	}
 }
 #+end_example
+
+** Testing Framework
+GDScript/integration tests verify the GDExtension classes inside a running
+Godot instance.
+
+
+*** Running tests locally
+Enable the editor plugin once via Project Settings → Plugins (Godot records
+it under ~[editor_plugins]~ in ~project/project.godot~). Headless CLI run:
+
+#+begin_src sh
+cd project
+GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh -a res://test
+#+end_src
+
+There is no ~--addon~ command-line flag in Godot; enabling a plugin happens
+through ~project.godot~, and headless test execution does not require the
+editor plugin at all (~GdUnitCmdTool.gd~ drives it).
+
+** Addons management
+I hate git submodules. They're unwieldy, and unfriendly to matrix builds in CI. Using them for project dependencies that you're not actually modifying is an abuse of git, classic hammer->nail fallacy. I'm probably coming for the =godot-cpp= submodule at some point.
+
+So, addons belong in the build, not in version control (other than their metadata), but I don't want to manage them manually either. After shopping around and reviewing some of the solutions out there, I felt that was overengineered too. I have Make and Scons and Python already; why not just write a simple INI file and fetch it, keeping with the conventions of the codebase? So that's the move I made.
+
+~addons.ini~ declares each required addon, and ~scons addons~ fetches and installs them. I didn't want to add a =scripts/= directory, though it would arguably be cleaner than shoving it into Scons. Here are some LLM-generated bullet-points about what's implemented:
+
+- ~make addons~ is a thin wrapper over ~scons addons~.
+- Parsing uses Python's stdlib ~configparser~, in process. Fetch and extraction
+  are a pure-Python action (~urllib~ + ~tarfile~ in ~methods.py~), so there
+  are no curl/wget/tar portability constraints.
+- Each addon installs under ~project/addons/<name>/~ — inside the Godot
+  project, so ~res://~ paths resolve. A ~.installed~ stamp makes repeat runs
+  a no-op and records which version was installed; when it disagrees with the
+  manifest, the next run reinstalls (deleting the addon directory also forces
+  a refetch).
+- ~project/addons/*~ is gitignored; ~!project/addons/midi/~ keeps the
+  project's own addon tracked.
+- CI (~builds.yml~ test job) runs ~make addons~ before building, then runs
+  tests via MikeSchulze/gdUnit4-action@v5. Note: the action requires the
+  ~paths~ input and supports ~project_dir: project/~ for this layout.
+
+Manifest sketch:
+
+#+begin_src ini :tangle no
+[gdUnit4]
+version = v6.2.1
+url = https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/{version}.tar.gz
+archive-subdir = addons/gdUnit4
+destination = project/addons/gdUnit4
+#+end_src

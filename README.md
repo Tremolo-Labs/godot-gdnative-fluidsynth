@@ -23,10 +23,10 @@ Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 3.  Build the extension
 
         # Editor build
-        scons api_version=4.7 target=template_editor
+        scons api_version=4.7 target=editor
 
         # With compile_commands.json for IDE support
-        scons api_version=4.7 target=template_editor compiledb=yes
+        scons api_version=4.7 target=editor compiledb=yes
 
 
 
