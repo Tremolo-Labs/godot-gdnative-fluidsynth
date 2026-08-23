@@ -1,30 +1,62 @@
-godot-gdnative-fluidsynth
-=========================
+# Godot Fluidsynth
 
-Godot gdnative fluidsynth library to allow playing music using fluidsynth.
+Godot gdnative fluidsynth library to allow playing music using fluidsynth. Based on the template at <https://github.com/godotengine/godot-cpp-template>
 
-How to Install
---------------
+Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 
-Install system dependencies for Ubuntu:
+-   `GDMidiAudioStreamPlayer` - AudioStreamPlayer subclass for MIDI playback
+-   `MidiFileReader` - Resource class for loading .mid files
+-   `SoundFontFileReader` - Resource class for loading .sf2 soundfont files
 
-    apt install libfluidsynth-dev abcmidi
 
-Build
------
 
-Initialize git submodules:
+### Build Commands
 
-    git submodule update --init --recursive
+1.  Prerequisites (Ubuntu/Debian)
 
-Create assets:
+        apt install fluidsynth libfluidsynth-dev scons
 
-    make assets
+2.  First-time setup
 
-Compile godot-cpp library:
+        git submodule update --init --recursive
 
-    make godot-cpp
+3.  Build the extension
 
-Compile gdnative library:
+        # Editor build
+        scons api_version=4.7 target=template_editor
 
-    make
+        # With compile_commands.json for IDE support
+        scons api_version=4.7 target=template_editor compiledb=yes
+
+
+
+### Architecture
+
+1.  Source Files (src/)
+| File                        | Purpose                                                |
+|-----------------------------+--------------------------------------------------------|
+| register_types.cpp          | GDExtension entry point, registers all classes         |
+| godot_fluidsynth.cpp/h      | Main GDMidiAudioStreamPlayer class wrapping FluidSynth |
+| midi_file_reader.cpp/h      | Resource loader for MIDI files                         |
+| soundfont_file_reader.cpp/h | Resource loader for SoundFont files                    |
+
+2.  Integration Pattern
+
+    FluidSynth expects file paths, but Godot resources are in-memory. The extension uses a custom sfloader with memory callbacks (`my_open`, `my_read`, `my_seek`, `my_tell`, `my_close`) that interpret a pointer address encoded as a string (`"&%p"`) to load soundfonts from Godot's resource system.
+
+3.  Build Output
+
+    -   `bin/<platform>/` - Raw build output
+    -   `gdmidiplayer/bin/<platform>/` - Copied for Godot project use
+
+
+
+### Platform Support
+| Platform | Method     | Status    |
+|----------+------------+-----------|
+| Linux    | pkg-config | Supported |
+| Windows  | vcpkg      | Manual    |
+| macOS    | vcpkg      | Manual    |
+| Android  | NDK        | Manual    |
+| iOS      | Xcode      | Manual    |
+| Web      | Emscripten | Manual    |
