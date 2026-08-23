@@ -30,7 +30,9 @@ func test_real_asset_roundtrip():
 	var reader = SoundFontFileReader.new()
 	reader.set_data(original)
 	var result = reader.get_data()
-	assert_array(result).is_equal(original)
+	assert_int(result.size()).is_equal(original.size())
+	if result != original:
+		fail("roundtrip mismatch")
 
 func test_real_asset_has_riff_sfbk_header():
 	var f = FileAccess.open("res://assets/example.sf2", FileAccess.READ)
@@ -41,14 +43,17 @@ func test_real_asset_has_riff_sfbk_header():
 	reader.set_data(f.get_buffer(f.get_length()))
 	f.close()
 	var data = reader.get_data()
+	# RIFF layout: "RIFF" | uint32 LE chunk size (bytes 4..7) | form type (bytes 8..11)
 	assert_int(data[0]).is_equal(0x52) # 'R'
 	assert_int(data[1]).is_equal(0x49) # 'I'
 	assert_int(data[2]).is_equal(0x46) # 'F'
 	assert_int(data[3]).is_equal(0x46) # 'F'
-	assert_int(data[4]).is_equal(0x73) # 's'
-	assert_int(data[5]).is_equal(0x66) # 'f'
-	assert_int(data[6]).is_equal(0x62) # 'b'
-	assert_int(data[7]).is_equal(0x6B) # 'k'
+	assert_int(data.size() - 8).is_greater(0)
+	assert_int(data[4] + (data[5] << 8) + (data[6] << 16) + (data[7] << 24)).is_equal(data.size() - 8)
+	assert_int(data[8]).is_equal(0x73) # 's'
+	assert_int(data[9]).is_equal(0x66) # 'f'
+	assert_int(data[10]).is_equal(0x62) # 'b'
+	assert_int(data[11]).is_equal(0x6B) # 'k'
 
 func test_set_data_overwrites_previous():
 	var reader = SoundFontFileReader.new()

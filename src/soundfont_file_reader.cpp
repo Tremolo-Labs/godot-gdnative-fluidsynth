@@ -1,5 +1,7 @@
 #include "soundfont_file_reader.h"
 
+#include <cstring>
+
 using namespace godot;
 
 SoundFontFileReader::SoundFontFileReader() :
@@ -21,25 +23,26 @@ void SoundFontFileReader::clear_data() {
 }
 
 void SoundFontFileReader::set_data(PackedByteArray data) {
-	PackedByteArray in_array = data;
-
-	if (array_data != NULL) {
+	if (array_data != nullptr) {
 		delete[] array_data;
+		array_data = nullptr;
 	}
 
-	array_size = in_array.size();
+	array_size = data.size();
 	array_data = new char[array_size + 1];
 
-	for (int i = 0; i < array_size; i++) {
-		array_data[i] = in_array[i];
+	if (array_size > 0) {
+		memcpy(array_data, data.ptr(), array_size);
 	}
 	array_data[array_size] = 0;
 }
 
 PackedByteArray SoundFontFileReader::get_data() {
 	PackedByteArray out_array;
-	for (int i = 0; i < array_size; i++) {
-		out_array.append(array_data[i]);
+	out_array.resize(array_size);
+
+	if (array_size > 0) {
+		memcpy(out_array.ptrw(), array_data, array_size);
 	}
 	return out_array;
 }

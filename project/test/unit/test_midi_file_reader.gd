@@ -38,7 +38,9 @@ func test_real_asset_roundtrip():
 	var reader = MidiFileReader.new()
 	reader.set_data(original)
 	var result = reader.get_data()
-	assert_array(result).is_equal(original)
+	assert_int(result.size()).is_equal(original.size())
+	if result != original:
+		fail("roundtrip mismatch")
 
 func test_real_asset_has_mthd_header():
 	var f = FileAccess.open("res://assets/example.mid", FileAccess.READ)
