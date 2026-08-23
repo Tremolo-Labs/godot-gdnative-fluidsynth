@@ -1,24 +1,10 @@
 * Godot Fluidsynth
 This plugin exposes [[https://www.fluidsynth.org/][FluidSynth]] to the Godot gaming engine by means of [[https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html][GDExtension]]. It was developed to provide realtime MIDI playback performance, and complement Godot's built-in MIDI input event handling and other excellent addons written in GDScript.
 
-
-** Classes and resources
-Three classes are registered with the engine, and a small GDScript addon teaches Godot's importer about MIDI assets:
-
-- ~GDMidiAudioStreamPlayer~ :: An ~AudioStreamPlayer~ subclass that synthesizes a Standard MIDI File through FluidSynth in realtime, pushing rendered stereo frames into the audio stream each frame.
-- ~MidiFileReader~ :: A ~Resource~ holding raw ~.mid~ bytes (~PackedByteArray~) so MIDI data can travel inside Godot's resource system.
-- ~SoundFontFileReader~ :: A ~Resource~ holding raw ~.sf2~ bytes, likewise.
-- ~addons/midi/~ :: Import/save/load plugins converting ~.mid~ → ~.midstr~ and ~.sf2~ → ~.sf2str~.
-
-The readers are minimal byte containers: parsing belongs to FluidSynth, which ships its own excellent test suite. Keeping them thin keeps this codebase thin.
-
-** Importing MIDI assets
-Godot only packs *imported* resources into exports, so opaque binary assets would silently vanish from a shipped game. The import plugins turn ~.mid~ and ~.sf2~ files into first-class resources (~.midstr~, ~.sf2str~), letting your SoundFonts and MIDI files survive export without manual ~include_filter~ incantations.
-
 ** Getting started
 Build prerequisites and commands live in the [[https://github.com/Tremolo-Labs/godot-fluidsynth#readme][README]]; the short version: ~libfluidsynth-dev~ ≥ 2.6, SCons, and the ~godot-cpp~ submodule, then ~scons api_version=4.7 target=template_editor~. Built libraries land in ~bin/~ at the repo root; the demo project expects them under ~project/bin/~ for ~res://~ resolution.
 
-** Playing a MIDI file
+*** Playing a MIDI file
 #+begin_src gdscript
 var player := GDMidiAudioStreamPlayer.new()
 add_child(player)
@@ -35,10 +21,23 @@ player.note_off(0, 60)
 
 Paths passed to the player resolve through Godot's resource system, so imported assets work as-is.
 
-** Loading SoundFonts at runtime
-A SoundFont lives inside Godot's resource system as opaque bytes, but FluidSynth's loader wants a real path on disk: since version 2.6 it stats the sfload path while building its sample cache, so handing it a memory pseudo-path aborts the process outright. The workaround is a round trip through a uniquely-named temp file under ~user://~, deleted again once ~fluid_synth_sfload~ has consumed it.
+** Design
+By default, Fluidsynth expects to be the audio driver looking for regular filesystem files. Godot packs assets into its own export file, so they're managed by Godot's ~Resource~ API and not visible to the filesystem. Godot is also the Audio driver. For this situation, Fluidsynth supports [[https://www.fluidsynth.org/wiki/api/audio-rendering/][custom rendering]], custom soundfont loaders, and [[https://www.fluidsynth.org/wiki/api/midi-player/#fluid_player_add_mem][setting its player's MIDI data in-memory]]. To implement this, three classes are registered with the engine, and a small GDScript addon teaches Godot's importer about MIDI assets:
 
-Issue [#24](https://github.com/Tremolo-Labs/godot-fluidsynth/issues/24) tracks filing this upstream so the in-memory loader can return; its legacy callbacks still sit unused in [[file:src/godot_fluidsynth.cpp][src/godot_fluidsynth.cpp]].
+- ~GDMidiAudioStreamPlayer~ :: An ~AudioStreamPlayer~ subclass that synthesizes a Standard MIDI File through FluidSynth in realtime, pushing rendered stereo frames into the audio stream each frame with an ~AudioStreamGeneratorPlayback~.
+- ~MidiFileReader~ :: A ~Resource~ holding raw ~.mid~ bytes (~PackedByteArray~) so MIDI data can travel inside Godot's resource system.
+- ~SoundFontFileReader~ :: A ~Resource~ holding raw ~.sf2~ bytes, likewise.
+- ~addons/midi/~ :: Import/save/load plugins converting ~.mid~ → ~.midstr~ and ~.sf2~ → ~.sf2str~.
+
+The readers are minimal byte containers: parsing belongs to FluidSynth, which ships its own excellent test suite. Keeping them thin keeps this codebase thin.
+
+
+*** Loading SoundFonts at runtime
+The ~GDMidiAudioStreamPlayer~ initialization creates a custom soundfont loader that reads the raw bytes from Godot's ~Resource~ system, which has taken over the job of managing the files so that they can be bundled in the exported game.
+
+But FluidSynth's built-in loader gets called first, and it wants a real path on disk. Since version 2.6 it stats the sfload path while building its sample cache and throws an exception when the in-memory pseudo-path cannot be found. As a workaround, we create a uniquely-named temp file under ~user://~, and delete it once ~fluid_synth_sfload~ has consumed it.
+
+Issue [[https://github.com/Tremolo-Labs/godot-fluidsynth/issues/24][#24]] tracks filing this upstream so the in-memory loader can return; its legacy callbacks still sit unused i [[file:src/godot_fluidsynth.cpp::void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {][src/godot_fluidsynth.cpp]]. In-memory custom loaders are supposed to be a supported workflow. It's an upstream bug.
 
 #+begin_example cpp
 void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
@@ -72,8 +71,8 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 }
 #+end_example
 
-** Handing MIDI data to the synthesizer
-MIDI needs no such dance: FluidSynth accepts raw song bytes directly through ~fluid_player_add_mem~, so a loaded ~MidiFileReader~ feeds the player straight from memory — no filesystem, no temp files.
+*** Handing MIDI data to the synthesizer
+FluidSynth accepts raw song bytes directly through ~fluid_player_add_mem~, so a loaded ~MidiFileReader~ feeds the player straight from memory.
 
 #+begin_example cpp
 void GDMidiAudioStreamPlayer::fluidsynth_play() {
@@ -95,7 +94,7 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
 }
 #+end_example
 
-** Rendering pipeline
+*** Rendering pipeline
 An ~AudioStreamPlayer~ expects someone to fill its playback buffer, and nothing in FluidSynth pushes audio on its own — so every frame the node drains the synthesizer by hand. ~_process~ also doubles as the lifecycle watchdog: when FluidSynth reports the song finished, the player object is torn down and a fresh one replaces it lazily.
 
 #+begin_example cpp
