@@ -49,21 +49,21 @@ long long my_tell(void *handle) {
 	return position;
 }
 
-void GDMidiAudioStreamPlayer::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("fluidsynth_play"), &GDMidiAudioStreamPlayer::fluidsynth_play);
-	ClassDB::bind_method(D_METHOD("program_select", "channel", "bank_num", "preset_num"), &GDMidiAudioStreamPlayer::program_select);
-	ClassDB::bind_method(D_METHOD("note_on", "channel", "key", "velocity"), &GDMidiAudioStreamPlayer::note_on);
-	ClassDB::bind_method(D_METHOD("note_off", "channel", "key"), &GDMidiAudioStreamPlayer::note_off);
-	ClassDB::bind_method(D_METHOD("pitch_bend", "channel", "value"), &GDMidiAudioStreamPlayer::pitch_bend);
-	ClassDB::bind_method(D_METHOD("set_soundfont", "soundfont"), &GDMidiAudioStreamPlayer::set_soundfont);
-	ClassDB::bind_method(D_METHOD("get_soundfont"), &GDMidiAudioStreamPlayer::get_soundfont);
+void AudioStreamPlayerFluidSynth::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("fluidsynth_play"), &AudioStreamPlayerFluidSynth::fluidsynth_play);
+	ClassDB::bind_method(D_METHOD("program_select", "channel", "bank_num", "preset_num"), &AudioStreamPlayerFluidSynth::program_select);
+	ClassDB::bind_method(D_METHOD("note_on", "channel", "key", "velocity"), &AudioStreamPlayerFluidSynth::note_on);
+	ClassDB::bind_method(D_METHOD("note_off", "channel", "key"), &AudioStreamPlayerFluidSynth::note_off);
+	ClassDB::bind_method(D_METHOD("pitch_bend", "channel", "value"), &AudioStreamPlayerFluidSynth::pitch_bend);
+	ClassDB::bind_method(D_METHOD("set_soundfont", "soundfont"), &AudioStreamPlayerFluidSynth::set_soundfont);
+	ClassDB::bind_method(D_METHOD("get_soundfont"), &AudioStreamPlayerFluidSynth::get_soundfont);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "soundfont"), "set_soundfont", "get_soundfont");
-	ClassDB::bind_method(D_METHOD("set_midi_file", "midi_file"), &GDMidiAudioStreamPlayer::set_midi_file);
-	ClassDB::bind_method(D_METHOD("get_midi_file"), &GDMidiAudioStreamPlayer::get_midi_file);
+	ClassDB::bind_method(D_METHOD("set_midi_file", "midi_file"), &AudioStreamPlayerFluidSynth::set_midi_file);
+	ClassDB::bind_method(D_METHOD("get_midi_file"), &AudioStreamPlayerFluidSynth::get_midi_file);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "midi file"), "set_midi_file", "get_midi_file");
 }
 
-GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() :
+AudioStreamPlayerFluidSynth::AudioStreamPlayerFluidSynth() :
 	buffer(nullptr),
 	fluidsynth_playing(false),
 	sfont_id(0),
@@ -84,14 +84,14 @@ GDMidiAudioStreamPlayer::GDMidiAudioStreamPlayer() :
 	fluid_synth_add_sfloader(synth, my_sfloader);
 }
 
-GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
+AudioStreamPlayerFluidSynth::~AudioStreamPlayerFluidSynth() {
 	delete[] buffer;
 	if (player) delete_fluid_player(player);
 	if (synth) delete_fluid_synth(synth);
 	if (settings) delete_fluid_settings(settings);
 }
 
-void GDMidiAudioStreamPlayer::_ready() {
+void AudioStreamPlayerFluidSynth::_ready() {
 	AudioServer *as = AudioServer::get_singleton();
 	if (as) {
 		int buf_size = as->get_mix_rate() * 2;
@@ -101,7 +101,7 @@ void GDMidiAudioStreamPlayer::_ready() {
 	stream_playback = get_stream_playback();
 }
 
-void GDMidiAudioStreamPlayer::_process(double delta) {
+void AudioStreamPlayerFluidSynth::_process(double delta) {
 	if (player && fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
 		fluid_player_stop(player);
 		fluid_player_join(player);
@@ -124,7 +124,7 @@ void GDMidiAudioStreamPlayer::_process(double delta) {
 	}
 }
 
-void GDMidiAudioStreamPlayer::fill_buffer() {
+void AudioStreamPlayerFluidSynth::fill_buffer() {
 	if (stream_playback.is_null() || !buffer || !synth) {
 		return;
 	}
@@ -141,7 +141,7 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 	}
 }
 
-void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
+void AudioStreamPlayerFluidSynth::set_soundfont(String p_soundfont) {
 	soundfont = p_soundfont;
 
 	if (!ResourceLoader::get_singleton()->exists(soundfont)) {
@@ -168,19 +168,19 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	}
 }
 
-String GDMidiAudioStreamPlayer::get_soundfont() {
+String AudioStreamPlayerFluidSynth::get_soundfont() {
 	return soundfont;
 }
 
-void GDMidiAudioStreamPlayer::set_midi_file(String p_midi_file) {
+void AudioStreamPlayerFluidSynth::set_midi_file(String p_midi_file) {
 	midi_file = p_midi_file;
 }
 
-String GDMidiAudioStreamPlayer::get_midi_file() {
+String AudioStreamPlayerFluidSynth::get_midi_file() {
 	return midi_file;
 }
 
-void GDMidiAudioStreamPlayer::fluidsynth_play() {
+void AudioStreamPlayerFluidSynth::fluidsynth_play() {
 	if (!ResourceLoader::get_singleton()->exists(midi_file)) {
 		return;
 	}
@@ -198,18 +198,18 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
 	fluidsynth_playing = true;
 }
 
-void GDMidiAudioStreamPlayer::program_select(int chan, int bank_num, int preset_num) {
+void AudioStreamPlayerFluidSynth::program_select(int chan, int bank_num, int preset_num) {
 	fluid_synth_program_select(synth, chan, sfont_id, bank_num, preset_num);
 }
 
-void GDMidiAudioStreamPlayer::note_on(int chan, int key, int vel) {
+void AudioStreamPlayerFluidSynth::note_on(int chan, int key, int vel) {
 	fluid_synth_noteon(synth, chan, key, vel);
 }
 
-void GDMidiAudioStreamPlayer::note_off(int chan, int key) {
+void AudioStreamPlayerFluidSynth::note_off(int chan, int key) {
 	fluid_synth_noteoff(synth, chan, key);
 }
 
-void GDMidiAudioStreamPlayer::pitch_bend(int chan, int val) {
+void AudioStreamPlayerFluidSynth::pitch_bend(int chan, int val) {
 	fluid_synth_pitch_bend(synth, chan, val);
 }

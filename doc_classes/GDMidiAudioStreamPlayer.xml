@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="GDMidiAudioStreamPlayer" inherits="AudioStreamPlayer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+<class name="AudioStreamPLayerFluidSynth" inherits="AudioStreamPlayer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 		Plays MIDI files using FluidSynth software synthesizer with SoundFont support.
 	</brief_description>
 	<description>
-		GDMidiAudioStreamPlayer extends AudioStreamPlayer to provide MIDI playback capabilities
+		AudioStreamPLayerFluidSynth extends AudioStreamPlayer to provide MIDI playback capabilities
 		using the FluidSynth library. It loads MIDI files and SoundFonts as custom resources
 		(MidiFileReader and SoundFontFileReader) and synthesizes audio in real-time.
 

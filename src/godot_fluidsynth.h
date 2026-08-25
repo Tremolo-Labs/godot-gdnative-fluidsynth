@@ -17,8 +17,8 @@
 
 namespace godot {
 class AudioStreamFluidsynth : public AudioStream {};
-class GDMidiAudioStreamPlayer : public AudioStreamPlayer {
-	GDCLASS(GDMidiAudioStreamPlayer, AudioStreamPlayer)
+class AudioStreamPlayerFluidSynth : public AudioStreamPlayer {
+	GDCLASS(AudioStreamPlayerFluidSynth, AudioStreamPlayer)
 
 private:
 	String soundfont;
@@ -39,8 +39,8 @@ private:
 public:
 	static void _bind_methods();
 
-	GDMidiAudioStreamPlayer();
-	~GDMidiAudioStreamPlayer();
+	AudioStreamPlayerFluidSynth();
+	~AudioStreamPlayerFluidSynth();
 
 	void _ready(); // our initializer called by Godot
 

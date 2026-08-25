@@ -4,7 +4,7 @@ Godot gdnative fluidsynth library to allow playing music using fluidsynth. Based
 
 Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 
--   `GDMidiAudioStreamPlayer` - AudioStreamPlayer subclass for MIDI playback
+-   `AudioStreamPLayerFluidSynth` - AudioStreamPlayer subclass for MIDI playback
 -   `MidiFileReader` - Resource class for loading .mid files
 -   `SoundFontFileReader` - Resource class for loading .sf2 soundfont files
 
@@ -36,7 +36,7 @@ Godot 4.x GDExtension wrapping FluidSynth for MIDI playback:
 | File                        | Purpose                                                |
 |-----------------------------+--------------------------------------------------------|
 | register_types.cpp          | GDExtension entry point, registers all classes         |
-| godot_fluidsynth.cpp/h      | Main GDMidiAudioStreamPlayer class wrapping FluidSynth |
+| godot_fluidsynth.cpp/h      | Main AudioStreamPLayerFluidSynth class wrapping FluidSynth |
 | midi_file_reader.cpp/h      | Resource loader for MIDI files                         |
 | soundfont_file_reader.cpp/h | Resource loader for SoundFont files                    |
 

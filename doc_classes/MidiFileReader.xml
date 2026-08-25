@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="MidiFileReader" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Resource containing raw MIDI file data for playback by GDMidiAudioStreamPlayer.
+		Resource containing raw MIDI file data for playback by AudioStreamPLayerFluidSynth.
 	</brief_description>
 	<description>
 		MidiFileReader is a Resource that holds the raw byte data of a MIDI file.

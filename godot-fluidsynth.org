@@ -6,7 +6,7 @@ Build prerequisites and commands live in the [[https://github.com/Tremolo-Labs/g
 
 *** Playing a MIDI file
 #+begin_src gdscript
-var player := GDMidiAudioStreamPlayer.new()
+var player := AudioStreamPLayerFluidSynth.new()
 add_child(player)
 player.set_soundfont("res://FluidR3_GM.sf2")
 player.set_midi_file("res://song.mid")
@@ -24,19 +24,19 @@ Paths passed to the player resolve through Godot's resource system, so imported 
 ** Design
 By default, Fluidsynth expects to be the audio driver looking for regular filesystem files. Godot packs assets into its own export file, so they're managed by Godot's ~Resource~ API and not visible to the filesystem. Godot is also the Audio driver. For this situation, Fluidsynth supports [[https://www.fluidsynth.org/wiki/api/audio-rendering/][custom rendering]], [[https://www.fluidsynth.org/wiki/api/soundfont-loader/][custom soundfont loaders]], and [[https://www.fluidsynth.org/wiki/api/midi-player/#fluid_player_add_mem][setting its player's MIDI data in-memory]]. To implement this, three classes are registered with the engine, and a small GDScript addon teaches Godot's importer about MIDI assets:
 
-- ~GDMidiAudioStreamPlayer~ :: An ~AudioStreamPlayer~ subclass that synthesizes a Standard MIDI File through FluidSynth in realtime, pushing rendered stereo frames into the audio stream each frame with an ~AudioStreamGeneratorPlayback~.
+- ~AudioStreamPLayerFluidSynth~ :: An ~AudioStreamPlayer~ subclass that synthesizes a Standard MIDI File through FluidSynth in realtime, pushing rendered stereo frames into the audio stream each frame with an ~AudioStreamGeneratorPlayback~.
 - ~MidiFileReader~ :: A ~Resource~ holding raw ~.mid~ bytes (~PackedByteArray~) so MIDI data can travel inside Godot's resource system.
 - ~SoundFontFileReader~ :: A ~Resource~ holding raw ~.sf2~ bytes, likewise.
 - ~addons/midi/~ :: Import/save/load plugins converting ~.mid~ → ~.midstr~ and ~.sf2~ → ~.sf2str~.
 
 
 *** Loading SoundFonts at runtime
-The ~GDMidiAudioStreamPlayer~ initialization creates a custom soundfont loader that reads the raw bytes from Godot's ~Resource~ system, which has taken over the job of managing the files so that they can be bundled in the exported game.
+The ~AudioStreamPLayerFluidSynth~ initialization creates a custom soundfont loader that reads the raw bytes from Godot's ~Resource~ system, which has taken over the job of managing the files so that they can be bundled in the exported game.
 
 FluidSynth's built-in loader gets called first and wants a real path on disk; ours is registered ahead of it and claims pseudo-paths beginning with ~&~, decoding them back into pointers to the raw bytes. The bytes must outlive the load: FluidSynth builds its sample cache lazily through those same callbacks, so the player holds a reference to the ~SoundFontFileReader~ until the font is replaced.
 
 #+begin_example cpp
-void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
+void AudioStreamPLayerFluidSynth::set_soundfont(String p_soundfont) {
 	soundfont = p_soundfont;
 
 	if (!ResourceLoader::get_singleton()->exists(soundfont)) {
@@ -68,7 +68,7 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 FluidSynth accepts raw song bytes directly through ~fluid_player_add_mem~, so a loaded ~MidiFileReader~ feeds the player straight from memory.
 
 #+begin_example cpp
-void GDMidiAudioStreamPlayer::fluidsynth_play() {
+void AudioStreamPLayerFluidSynth::fluidsynth_play() {
 	if (!ResourceLoader::get_singleton()->exists(midi_file)) {
 		return;
 	}
@@ -88,10 +88,10 @@ void GDMidiAudioStreamPlayer::fluidsynth_play() {
 #+end_example
 
 *** Rendering pipeline
-The ~GDMidiAudioStreamPlayer~ uses an ~AudioStreamGeneratorPlayback~ to fill its playback buffer at each ~~_process~ call. Every frame the node drains the synthesizer by hand. ~_process~ also doubles as the lifecycle watchdog: when FluidSynth reports the song finished, the player object is torn down and a fresh one replaces it lazily.
+The ~AudioStreamPLayerFluidSynth~ uses an ~AudioStreamGeneratorPlayback~ to fill its playback buffer at each ~~_process~ call. Every frame the node drains the synthesizer by hand. ~_process~ also doubles as the lifecycle watchdog: when FluidSynth reports the song finished, the player object is torn down and a fresh one replaces it lazily.
 
 #+begin_example cpp
-void GDMidiAudioStreamPlayer::_process(double delta) {
+void AudioStreamPLayerFluidSynth::_process(double delta) {
 	if (player && fluid_player_get_status(player) == FLUID_PLAYER_DONE && fluidsynth_playing) {
 		fluid_player_stop(player);
 		fluid_player_join(player);
@@ -118,7 +118,7 @@ void GDMidiAudioStreamPlayer::_process(double delta) {
 ~fill_buffer~ renders however many frames the stream can accept (capped at 44100 per pass) into an interleaved buffer, then walks it two floats at a time pushing stereo frames. Due to buffer format differences, ~AudioStreamGeneratorPlayback.push_frame~ is probably about the same cost as ~AudioStreamGeneratorPlayback.push_buffer~ after building a ~PackedVector2Array~ out of the interleaved stereo buffer frames. We might revisit this.
 
 #+begin_example cpp
-void GDMidiAudioStreamPlayer::fill_buffer() {
+void AudioStreamPLayerFluidSynth::fill_buffer() {
 	if (stream_playback.is_null() || !buffer || !synth) {
 		return;
 	}
@@ -138,7 +138,7 @@ void GDMidiAudioStreamPlayer::fill_buffer() {
 
 
 ** Class architecture
-Today ~GDMidiAudioStreamPlayer~ is a monolith: one node owns the FluidSynth ~settings~, ~synth~, and ~player~ handles plus the audio pumping. FluidSynth itself draws cleaner seams — a synth you can strike immediately, a player that walks SMF tracks, and a sequencer that delivers events on a clock. Games want those seams too: driving a voice without loading a song, scheduling stabs on a timeline without a transport, tuning effects without touching playback.
+Today ~AudioStreamPLayerFluidSynth~ is a monolith: one node owns the FluidSynth ~settings~, ~synth~, and ~player~ handles plus the audio pumping. FluidSynth itself draws cleaner seams — a synth you can strike immediately, a player that walks SMF tracks, and a sequencer that delivers events on a clock. Games want those seams too: driving a voice without loading a song, scheduling stabs on a timeline without a transport, tuning effects without touching playback.
 
 *** GDMIDIPlayer
 Plays tracks: transport over Standard MIDI Files. Wraps ~fluid_player_t~ and replaces the ~_process~-watchdog polling that currently recycles the player (and races replays into duplicated playlists) with an event-driven lifecycle.
@@ -183,7 +183,7 @@ Class docs carry the header warnings verbatim: callbacks fire from the synthesis
 Settings-driven UI belongs to issue
 [[https://github.com/Tremolo-Labs/godot-fluidsynth/issues/20][#20]]; this class ships the properties it will bind.
 
-*** QMIDISequencer
+*** GDMIDISequencer
 Timed event delivery to a synth — the future tense of GDMIDISynth. There is no overlap with the synth by construction: the synth executes commands *now*, the sequencer owns a clock and delivers them *later*. Boundary rule: any API taking a timestamp lives here, any immediate call lives there.
 
 A dedicated class owns ~fluid_sequencer_t~, registering the target player's synth as its client at construction (one sequencer per synth in v1).
