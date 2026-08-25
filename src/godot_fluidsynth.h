@@ -23,7 +23,7 @@ class GDMidiAudioStreamPlayer : public AudioStreamPlayer {
 private:
 	String soundfont;
 	String midi_file;
-	String temp_path;
+	Ref<SoundFontFileReader> soundfont_resource;
 	float *buffer;
 	bool fluidsynth_playing;
 	int sfont_id;
