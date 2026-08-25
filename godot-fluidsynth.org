@@ -33,9 +33,7 @@ By default, Fluidsynth expects to be the audio driver looking for regular filesy
 *** Loading SoundFonts at runtime
 The ~GDMidiAudioStreamPlayer~ initialization creates a custom soundfont loader that reads the raw bytes from Godot's ~Resource~ system, which has taken over the job of managing the files so that they can be bundled in the exported game.
 
-But FluidSynth's built-in loader gets called first, and it wants a real path on disk. Since version 2.6 it stats the sfload path while building its sample cache and throws an exception when the in-memory pseudo-path cannot be found. As a workaround, we create a uniquely-named temp file under ~user://~, and delete it once ~fluid_synth_sfload~ has consumed it.
-
-Issue [[https://github.com/Tremolo-Labs/godot-fluidsynth/issues/24][#24]] tracks filing this upstream so the in-memory loader can return; its legacy callbacks still sit unused i [[file:src/godot_fluidsynth.cpp::void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {][src/godot_fluidsynth.cpp]]. In-memory custom loaders are supposed to be a supported workflow. It's an upstream bug.
+FluidSynth's built-in loader gets called first and wants a real path on disk; ours is registered ahead of it and claims pseudo-paths beginning with ~&~, decoding them back into pointers to the raw bytes. The bytes must outlive the load: FluidSynth builds its sample cache lazily through those same callbacks, so the player holds a reference to the ~SoundFontFileReader~ until the font is replaced.
 
 #+begin_example cpp
 void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
@@ -48,24 +46,21 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	if (soundfont_file.is_null()) {
 		return;
 	}
-	// FluidSynth >= 2.6 stats the sfload path for its sample cache; our encoded
-	// memory pseudo-path makes std::filesystem throw and abort the process.
-	// Write the SoundFont to a real file and let the default loader handle it.
-	static int temp_counter = 0;
-	String temp_path = OS::get_singleton()->get_user_data_dir()
-			+ "/godot_fluidsynth_" + String::num_int64(OS::get_singleton()->get_process_id())
-			+ "_" + String::num_int64(temp_counter++) + ".sf2";
+	// Encode the address of the SoundFont's raw bytes as a pseudo-path. The
+	// custom sfloader registered in the constructor decodes it back into a
+	// pointer, so the font loads straight from Godot's Resource system.
+	char abused_filename[64];
+	const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
+	snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+	fsize = soundfont_file->get_array_size();
+	sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
 
-	Ref<FileAccess> f = FileAccess::open(temp_path, FileAccess::WRITE);
-	if (f.is_null()) {
-		return;
+	if (sfont_id >= 0) {
+		// FluidSynth builds its sample cache lazily through those same
+		// callbacks; hold the resource until the font is replaced so the
+		// bytes outlive sfload().
+		soundfont_resource = soundfont_file;
 	}
-	f->store_buffer(soundfont_file->get_data());
-	f->close();
-
-	sfont_id = fluid_synth_sfload(synth, temp_path.utf8().get_data(), 1);
-
-	DirAccess::remove_absolute(temp_path);
 }
 #+end_example
 

@@ -89,9 +89,6 @@ GDMidiAudioStreamPlayer::~GDMidiAudioStreamPlayer() {
 	if (player) delete_fluid_player(player);
 	if (synth) delete_fluid_synth(synth);
 	if (settings) delete_fluid_settings(settings);
-	if (temp_path != "") {
-		DirAccess::remove_absolute(temp_path);
-	}
 }
 
 void GDMidiAudioStreamPlayer::_ready() {
@@ -154,30 +151,20 @@ void GDMidiAudioStreamPlayer::set_soundfont(String p_soundfont) {
 	if (soundfont_file.is_null()) {
 		return;
 	}
-	// FluidSynth >= 2.6 stats the sfload path for its sample cache; our encoded
-	// memory pseudo-path makes std::filesystem throw and abort the process.
-	// Write the SoundFont to a real file and let the default loader handle it.
-	// The cache build is lazy, so the file must outlive sfload(): it is removed
-	// on the next successful load, or when this player is destroyed.
-	static int temp_counter = 0;
-	String new_path = OS::get_singleton()->get_user_data_dir()
-			+ "/godot_fluidsynth_" + String::num_int64(OS::get_singleton()->get_process_id())
-			+ "_" + String::num_int64(temp_counter++) + ".sf2";
-
-	Ref<FileAccess> f = FileAccess::open(new_path, FileAccess::WRITE);
-	if (f.is_null()) {
-		return;
-	}
-	f->store_buffer(soundfont_file->get_data());
-	f->close();
-
-	sfont_id = fluid_synth_sfload(synth, new_path.utf8().get_data(), 1);
+	// Encode the address of the SoundFont's raw bytes as a pseudo-path. The
+	// custom sfloader registered in the constructor decodes it back into a
+	// pointer, so the font loads straight from Godot's Resource system.
+	char abused_filename[64];
+	const void *pointer_to_sf2_in_mem = soundfont_file->get_array_data();
+	snprintf(abused_filename, sizeof(abused_filename), "&%p", pointer_to_sf2_in_mem);
+	fsize = soundfont_file->get_array_size();
+	sfont_id = fluid_synth_sfload(synth, abused_filename, 1);
 
 	if (sfont_id >= 0) {
-		if (temp_path != "") {
-			DirAccess::remove_absolute(temp_path);
-		}
-		temp_path = new_path;
+		// FluidSynth builds its sample cache lazily through those same
+		// callbacks; hold the resource until the font is replaced so the
+		// bytes outlive sfload().
+		soundfont_resource = soundfont_file;
 	}
 }
 
