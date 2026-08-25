@@ -5,7 +5,7 @@ mix_rate_mode = 0
 
 [node name="main" type="Node2D" unique_id=939852912]
 
-[node name="player" type="GDMidiAudioStreamPlayer" parent="." unique_id=828974088]
+[node name="player" type="AudioStreamPLayerFluidSynth" parent="." unique_id=828974088]
 soundfont = "res://assets/example.sf2"
 "midi file" = "res://assets/example.mid"
 stream = SubResource("1")

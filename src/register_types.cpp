@@ -16,7 +16,7 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level) {
 	}
 	GDREGISTER_CLASS(MidiFileReader);
 	GDREGISTER_CLASS(SoundFontFileReader);
-	GDREGISTER_CLASS(GDMidiAudioStreamPlayer);
+	GDREGISTER_CLASS(AudioStreamPlayerFluidSynth);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {

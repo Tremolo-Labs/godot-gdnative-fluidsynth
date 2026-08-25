@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="SoundFontFileReader" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Resource containing raw SoundFont data for use by GDMidiAudioStreamPlayer.
+		Resource containing raw SoundFont data for use by AudioStreamPLayerFluidSynth.
 	</brief_description>
 	<description>
 		SoundFontFileReader is a Resource that holds the raw byte data of a SoundFont (.sf2) file.
